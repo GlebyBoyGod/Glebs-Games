@@ -132,7 +132,7 @@
                 </div>
 
                 <!-- Card: Bubble Blasters -->
-                <div class="game-card rounded-3xl overflow-hidden p-6" onclick="launchGame('bubble-blasters')">
+                <div class="game-card rounded-3xl overflow-hidden p-6" onclick="launchGame('bubbleblasters')">
                     <div class="aspect-video rounded-2xl bg-pink-50 mb-6 overflow-hidden border-2 border-slate-100 relative group">
                         <img src="https://images.unsplash.com/photo-1518770660439-4636190af475?q=80&w=2070&auto=format&fit=crop" class="w-full h-full object-cover group-hover:scale-105 transition-transform">
                         <div class="absolute inset-0 bg-pink-600/10 group-hover:bg-transparent transition-colors"></div>
@@ -178,7 +178,13 @@
         const loader = document.getElementById('loader-screen');
 
         function launchGame(filename) {
-            const gameTitle = filename.replace('-', ' ').toUpperCase();
+            // Mapping for display names if needed
+            const displayNames = {
+                'vanguard': 'VANGUARD',
+                'bubbleblasters': 'BUBBLE BLASTERS'
+            };
+            
+            const gameTitle = displayNames[filename] || filename.toUpperCase();
             
             document.getElementById('home-view').classList.add('hidden-view');
             document.getElementById('game-view').classList.remove('hidden-view');
@@ -188,6 +194,7 @@
             viewport.style.display = 'none';
             window.scrollTo({ top: 0, behavior: 'smooth' });
 
+            // This will look for bubbleblasters.html as requested
             viewport.src = filename + '.html';
 
             viewport.onload = function() {
