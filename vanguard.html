@@ -1,0 +1,1754 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vanguard</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='45' stroke='%2300ff80' stroke-width='5' fill='none'/><circle cx='50' cy='50' r='20' fill='%2300ff80'/><path d='M50 5 L50 20' stroke='%2300ff80' stroke-width='5'/><path d='M50 95 L50 80' stroke='%2300ff80' stroke-width='5'/><path d='M5 50 L20 50' stroke='%2300ff80' stroke-width='5'/><path d='M95 50 L80 50' stroke='%2300ff80' stroke-width='5'/></svg>">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=JetBrains+Mono:wght@400;700&display=swap');
+        
+        :root {
+            --cmd-green: #00ff80;
+            --cmd-bg: #05070a;
+            --cmd-glass: rgba(8, 12, 20, 0.95);
+            --cmd-border: rgba(0, 255, 128, 0.15);
+        }
+        body { 
+            font-family: 'JetBrains Mono', monospace; 
+            background-color: var(--cmd-bg); 
+            color: #e6edf3; 
+            overflow: hidden;
+            margin: 0;
+            height: 100vh;
+        }
+        h1, h2, h3, h4 { font-family: 'Orbitron', sans-serif; letter-spacing: 2px; }
+        
+        canvas { 
+            background: radial-gradient(circle at center, #0a1120 0%, #05070a 100%);
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+        .glass {
+            background: var(--cmd-glass);
+            backdrop-filter: blur(15px);
+            border: 1px solid var(--cmd-border);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+        }
+        .btn-cmd {
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 1px solid var(--cmd-border);
+            text-transform: uppercase;
+            font-weight: bold;
+            position: relative;
+            overflow: hidden;
+        }
+        .btn-cmd:hover:not(:disabled) {
+            background: rgba(0, 255, 128, 0.1);
+            border-color: var(--cmd-green);
+            box-shadow: 0 0 20px rgba(0, 255, 128, 0.2);
+            transform: translateY(-1px);
+        }
+        .btn-cmd:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+            filter: grayscale(1);
+            border-color: #555;
+            color: #555;
+        }
+        .scanline {
+            width: 100%;
+            height: 2px;
+            background: rgba(0, 255, 128, 0.05);
+            position: absolute;
+            z-index: 99;
+            top: 0;
+            pointer-events: none;
+            animation: scan 4s linear infinite;
+        }
+        @keyframes scan { from { top: 0; } to { top: 100%; } }
+        .sidebar-scroll::-webkit-scrollbar { width: 4px; }
+        .sidebar-scroll::-webkit-scrollbar-thumb { background: var(--cmd-border); border-radius: 10px; }
+        .glitch-text { animation: glitch 2s infinite; }
+        @keyframes glitch {
+            0% { text-shadow: 2px 0 #ff00c1, -2px 0 #00fff9; }
+            5% { text-shadow: -2px 0 #ff00c1, 2px 0 #00fff9; }
+            10.1% { text-shadow: none; }
+        }
+        .map-preview {
+            background: #000;
+            aspect-ratio: 16/9;
+            position: relative;
+            overflow: hidden;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .comms-log {
+            font-size: 10px;
+            color: #00ff80;
+            text-shadow: 0 0 5px rgba(0, 255, 128, 0.5);
+            opacity: 0.8;
+            pointer-events: none;
+        }
+        
+        .locked-overlay {
+            background: repeating-linear-gradient(
+                45deg,
+                rgba(0, 0, 0, 0.8),
+                rgba(0, 0, 0, 0.8) 10px,
+                rgba(20, 20, 20, 0.8) 10px,
+                rgba(20, 20, 20, 0.8) 20px
+            );
+        }
+        .loading-bar {
+            height: 100%;
+            background: var(--cmd-green);
+            width: 0%;
+            transition: width 0.1s linear;
+            box-shadow: 0 0 15px var(--cmd-green);
+            position: relative;
+            overflow: hidden;
+        }
+        .loading-bar::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.8), transparent);
+            transform: translateX(-100%);
+            animation: shimmer 1s infinite;
+        }
+        @keyframes shimmer { 100% { transform: translateX(100%); } }
+        .grid-bg {
+            background-size: 50px 50px;
+            background-image: 
+                linear-gradient(to right, rgba(0, 255, 128, 0.05) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(0, 255, 128, 0.05) 1px, transparent 1px);
+        }
+        .modal-animate { animation: modalPop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        @keyframes modalPop { 0% { opacity: 0; transform: scale(0.9); } 100% { opacity: 1; transform: scale(1); } }
+        
+        .cooldown-overlay {
+            position: absolute;
+            bottom: 0; left: 0; right: 0;
+            background: rgba(0,0,0,0.8);
+            transition: height 0.1s linear;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 12px;
+            overflow: hidden;
+        }
+        
+        /* Removed critical failure shake as per request */
+        
+        .draggable {
+            cursor: grab;
+            position: absolute;
+            z-index: 1000;
+        }
+        .draggable:active {
+            cursor: grabbing;
+        }
+    </style>
+</head>
+<body class="flex overflow-hidden">
+    <div class="scanline"></div>
+    <div id="app" class="flex w-full h-full relative"></div>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'vanguard-mega-v3';
+        
+        let db, auth, user;
+        // --- AUDIO SYSTEM ---
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const SFX = {
+            playTone: (freq, type, duration, vol = 0.1, slideTo = null) => {
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                if (slideTo) osc.frequency.exponentialRampToValueAtTime(slideTo, audioCtx.currentTime + duration);
+                gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                osc.start(); osc.stop(audioCtx.currentTime + duration);
+            },
+            shoot: () => SFX.playTone(300 + Math.random() * 200, 'sawtooth', 0.1, 0.05, 10),
+            hit: () => SFX.playTone(150, 'square', 0.05, 0.05, 50),
+            kill: () => {
+                SFX.playTone(600, 'sine', 0.1, 0.05);
+                setTimeout(() => SFX.playTone(1200, 'square', 0.1, 0.03), 50);
+            },
+            gain: () => {
+                 SFX.playTone(1200, 'sine', 0.2, 0.05);
+                 setTimeout(() => SFX.playTone(2000, 'sine', 0.3, 0.05), 100);
+            },
+            explosion: () => {
+                const bufferSize = audioCtx.sampleRate * 0.5;
+                const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+                const noise = audioCtx.createBufferSource();
+                noise.buffer = buffer;
+                const gain = audioCtx.createGain();
+                gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+                noise.connect(gain); gain.connect(audioCtx.destination);
+                noise.start();
+            },
+            ui: () => SFX.playTone(800, 'sine', 0.05, 0.05, 1200),
+            error: () => SFX.playTone(150, 'sawtooth', 0.2, 0.1, 100)
+        };
+        const WEATHER_EVENTS = [
+            { id: 'clear', name: 'CLEAR SKIES', desc: 'No environmental interference.', color: '#00ff80', combat: {} },
+            { id: 'solar', name: 'SOLAR FLARE', desc: 'Energy weapons deal +50% DMG. Range -10%.', color: '#e67e22', combat: { typeBuff: 'energy', val: 1.5, range: 0.9 } },
+            { id: 'storm', name: 'ION STORM', desc: 'Shields regenerate. Physical weapons -20% DMG.', color: '#3498db', combat: { typeDebuff: 'physical', val: 0.8, shieldRegen: true } },
+            { id: 'fog', name: 'DENSE FOG', desc: 'Tower Range reduced by 25%.', color: '#95a5a6', combat: { range: 0.75 } },
+            { id: 'overcast', name: 'HIGH WINDS', desc: 'Projectile speed increased.', color: '#ecf0f1', combat: { speed: 1.2 } }
+        ];
+        const TOWER_DATA = {
+            'Cannon': { name: "M1-ABRAMS", cost: 100, range: 160, damage: 55, rate: 60, color: '#4d5d53', type: 'combat', barrel: 'long', unlock: 0, desc: "Standard anti-armor cannon. Reliable physical damage." },
+            'Gatling': { name: "PHALANX", cost: 180, range: 140, damage: 18, rate: 12, color: '#7f8c8d', type: 'combat', barrel: 'double', unlock: 100, desc: "Ultra high fire rate." },
+            'Sniper': { name: "RAILGUN", cost: 350, range: 450, damage: 450, rate: 180, color: '#2980b9', type: 'combat', barrel: 'needle', unlock: 300, desc: "Extreme range railgun. Ignores 50% of shields." },
+            'Mine': { name: "CLAYMORE", cost: 50, range: 40, damage: 600, rate: 0, color: '#ff0000', type: 'mine', barrel: 'mine', unlock: 400, desc: "Deploy on path. Explodes on contact (One use)." },
+            'Frost': { name: "CRYODOME", cost: 250, range: 150, damage: 10, rate: 60, color: '#81ecec', type: 'combat', barrel: 'dish', unlock: 500, desc: "Slowing field. Reduces enemy speed by 50% in radius." },
+            'Tesla': { name: "TESLA-COIL", cost: 450, range: 180, damage: 160, rate: 50, color: '#9b59b6', type: 'combat', barrel: 'orb', unlock: 1000, desc: "Arcs lightning to 3 nearby targets. Double damage vs Shields." },
+            'Plasma': { name: "NOVA-CORE", cost: 700, range: 200, damage: 500, rate: 90, color: '#e67e22', type: 'combat', barrel: 'fat', unlock: 2000, desc: "Melts plating. High energy damage." },
+            'Laser': { name: "BEAM-SAT", cost: 550, range: 250, damage: 5, rate: 1, color: '#e74c3c', type: 'combat', barrel: 'tri', unlock: 4000, desc: "Continuous beam. Reveals Stealth units." },
+            'Missile': { name: "HELLFIRE", cost: 850, range: 400, damage: 1500, rate: 250, color: '#c0392b', type: 'combat', barrel: 'box', unlock: 7000, desc: "Splash damage. Rockets explode damaging all in area." },
+            'Sonic': { name: "RESONATOR", cost: 400, range: 130, damage: 80, rate: 40, color: '#f1c40f', type: 'combat', barrel: 'wave', unlock: 9000, desc: "Sonic shockwaves. Stuns enemies and Reveals Stealth." },
+            'Virus': { name: "MALWARE", cost: 600, range: 170, damage: 5, rate: 30, color: '#2ecc71', type: 'combat', barrel: 'spike', unlock: 12000, desc: "Infects system. Deals massive damage over time." },
+            'Nuke': { name: "MINI-NUKE", cost: 2500, range: 300, damage: 8000, rate: 800, color: '#d35400', type: 'combat', barrel: 'fat', unlock: 20000, desc: "Tactical nuke. Massive area damage radius." },
+            'Emp': { name: "ION-BURST", cost: 900, range: 200, damage: 100, rate: 120, color: '#3498db', type: 'combat', barrel: 'orb', unlock: 65000, desc: "Wide area EMP. Stuns all enemies in range for 2s." },
+            'Healer': { name: "MED-STATION", cost: 500, range: 0, damage: 0, rate: 400, color: '#27ae60', type: 'support', barrel: 'cross', unlock: 5000, desc: "Nanobot repair suite. Restores Hull Integrity." },
+            'Bank': { name: "CRYPTO-MINER", cost: 800, range: 0, damage: 0, rate: 800, color: '#f1c40f', type: 'support', barrel: 'dollar', unlock: 8000, desc: "Resource generation algorithm. Produces surplus credits." },
+            'Barracks': { name: "INFANTRY-HUB", cost: 600, range: 150, damage: 100, rate: 250, color: '#d35400', type: 'spawner', barrel: 'hut', unlock: 10000, desc: "Deploys elite soldiers. Physical path obstruction." }
+        };
+        const MAPS = {
+            'outpost': { name: "NEON OUTPOST", color: '#00ff80', path: [{x:-0.1, y:0.25}, {x:0.4, y:0.25}, {x:0.4, y:0.75}, {x:0.15, y:0.75}, {x:0.15, y:0.5}, {x:0.75, y:0.5}, {x:0.75, y:0.2}, {x:0.9, y:0.2}, {x:0.9, y:0.85}, {x:1.1, y:0.85}], zones: [{x:0.5, y:0.5, r: 80, type: 'high_ground'}], desc: "Urban defense simulation in high-density grid.", unlockCost: 0, target: 20 },
+            'canyon': { name: "SILICON CANYON", color: '#f39c12', path: [{x:-0.1, y:0.1}, {x:0.9, y:0.1}, {x:0.9, y:0.3}, {x:0.1, y:0.3}, {x:0.1, y:0.5}, {x:0.9, y:0.5}, {x:0.9, y:0.7}, {x:0.1, y:0.7}, {x:0.1, y:0.9}, {x:1.1, y:0.9}], zones: [{x:0.5, y:0.5, r: 100, type: 'hazard'}], desc: "Multi-layered ravine. Requires Outpost Victory.", unlockCost: 500, target: 25 },
+            'waste': { name: "FROZEN WASTE", color: '#3498db', path: [{x:-0.1, y:0.5}, {x:0.3, y:0.5}, {x:0.3, y:0.2}, {x:0.7, y:0.2}, {x:0.7, y:0.8}, {x:0.3, y:0.8}, {x:0.3, y:0.5}, {x:1.1, y:0.5}], zones: [{x:0.2, y:0.2, r: 60, type: 'high_ground'}, {x:0.8, y:0.8, r: 60, type: 'high_ground'}], desc: "Open glacial expanse. Requires Canyon Victory.", unlockCost: 1000, target: 30 },
+            'ridge': { name: "VOLCANIC RIDGE", color: '#e74c3c', path: [{x:0.5, y:-0.1}, {x:0.5, y:0.3}, {x:0.2, y:0.3}, {x:0.2, y:0.7}, {x:0.8, y:0.7}, {x:0.8, y:0.3}, {x:0.5, y:0.3}, {x:0.5, y:1.1}], zones: [{x:0.5, y:0.5, r: 120, type: 'hazard'}], desc: "Vertical infiltration. Requires Waste Victory.", unlockCost: 2000, target: 35 },
+            'orbital': { name: "ORBITAL RING", color: '#9b59b6', path: [{x:-0.1, y:0.2}, {x:0.2, y:0.2}, {x:0.8, y:0.8}, {x:1.1, y:0.8}], zones: [], desc: "High-velocity straightway. The Final Defense.", unlockCost: 5000, target: 50 }
+        };
+        const UPGRADE_DATA = {
+            gemRate: { name: "DATA MINING", desc: "Increases Gem drop rate by +25% per level.", base: 50, max: 10 },
+            fireRate: { name: "OVERCLOCKING", desc: "Decreases cooldown for all turrets.", base: 100, max: 20 },
+            damage: { name: "AMMO UPGRADE", desc: "Increases base damage of all turrets.", base: 150, max: 20 },
+            shielding: { name: "HULL REINFORCEMENT", desc: "Start every mission with +10 health per level.", base: 200, max: 10 },
+            bounty: { name: "CREDIT SYNDICATE", desc: "Start every mission with +$100 extra credits.", base: 300, max: 15 },
+            discount: { name: "SUPPLY CHAIN", desc: "Reduce tower costs by 7% per level.", base: 500, max: 10 },
+            cmdCooldown: { name: "COMMAND UPLINK", desc: "Reduces Commander Ability cooldowns by 10%.", base: 400, max: 5 },
+            cmdEffect: { name: "EXECUTIVE POWER", desc: "Boosts effectiveness of Repair, Overload & Strike.", base: 600, max: 5 }
+        };
+        const DAILY_BOUNTIES = [
+            { id: 'kill_100', desc: "Neutralize 100 Hostiles", target: 100, reward: 200 },
+            { id: 'wave_20', desc: "Reach Sector 20 on any Map", target: 20, reward: 350 },
+            { id: 'build_10', desc: "Construct 10 Defense Units", target: 10, reward: 150 },
+            { id: 'boss_5', desc: "Eliminate 5 Boss Units", target: 5, reward: 500 }
+        ];
+        function getInitialState(prestigeLevel = 0) {
+            const randomBounty = DAILY_BOUNTIES[Math.floor(Math.random() * DAILY_BOUNTIES.length)];
+            return {
+                gems: 250, 
+                scrap: 0,
+                commander: { level: 1, xp: 0 },
+                mastery: {}, // { 'Cannon': 1 }
+                inventory: { 'supply': 0 },
+                prestige: prestigeLevel,
+                unlocked: ['Cannon'], 
+                unlockedMaps: ['outpost'],
+                completedMaps: [],
+                upgrades: { gemRate: 0, fireRate: 0, damage: 0, shielding: 0, bounty: 0, discount: 0, cmdCooldown: 0, cmdEffect: 0 },
+                highScore: 0, screen: 'loading',
+                richStart: false,
+                hardcore: false,
+                notification: null,
+                cheatsOpen: false,
+                resetConfirm: false,
+                manualOpen: false, 
+                lastLogin: Date.now(),
+                achievements: { kills: 0, earned: 0, waves: 0 },
+                bounty: { ...randomBounty, progress: 0, claimed: false }
+            };
+        }
+        window.state = getInitialState();
+        let activeSession = null;
+        let canvas, ctx, animId;
+        let loadProgress = 0;
+        let screenShake = 0;
+        let mouseGlobal = { x: 0, y: 0 };
+        
+        const TICK_RATE = 100;
+        const MS_PER_TICK = 1000 / TICK_RATE;
+        let lastTime = 0;
+        let accumulator = 0;
+        function formatNumber(num) {
+            if (num >= 1000000000) return (num / 1000000000).toFixed(1).replace(/\.0$/, '') + 'B';
+            if (num >= 1000000) return (num / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+            if (num >= 1000) return (num / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+            return num.toString();
+        }
+        function logComms(msg) {
+            // Disabled
+        }
+        async function init() {
+            renderUI();
+            const localSave = localStorage.getItem('vanguard_save_data');
+            if (localSave) {
+                try {
+                    const saved = JSON.parse(localSave);
+                    const mergedUpgrades = { ...window.state.upgrades, ...(saved.upgrades || {}) };
+                    const mergedMastery = { ...window.state.mastery, ...(saved.mastery || {}) };
+                    const mergedInventory = { ...window.state.inventory, ...(saved.inventory || {}) };
+                    const mergedCommander = { ...window.state.commander, ...(saved.commander || { level: 1, xp: 0 }) };
+                    
+                    const now = Date.now();
+                    const last = saved.lastLogin || 0;
+                    if (now - last > 86400000) { 
+                        window.showNotification("DAILY REWARD", "WELCOME BACK, COMMANDER. +100 GEMS");
+                        saved.gems = (saved.gems || 0) + 100;
+                        saved.lastLogin = now;
+                    }
+                    window.state = { 
+                        ...window.state, ...saved, 
+                        upgrades: mergedUpgrades, 
+                        mastery: mergedMastery,
+                        inventory: mergedInventory,
+                        commander: mergedCommander
+                    };
+                } catch(e) { console.error("Local Save Corruption:", e); }
+            }
+            window.addEventListener('beforeunload', () => { save(); });
+            // Global mouse tracking
+            document.addEventListener('mousemove', (e) => {
+                mouseGlobal = { x: e.clientX, y: e.clientY };
+                if (activeSession && canvas) {
+                    const rect = canvas.getBoundingClientRect();
+                    activeSession.mouse = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+                }
+            });
+            
+            const interval = setInterval(() => {
+                loadProgress += Math.random() * 15;
+                if (loadProgress >= 100) {
+                    loadProgress = 100;
+                    clearInterval(interval);
+                    setTimeout(() => {
+                        window.state.screen = 'boot';
+                        renderUI();
+                    }, 500);
+                }
+                const bar = document.getElementById('loading-bar');
+                if (bar) bar.style.width = `${loadProgress}%`;
+            }, 150);
+            setTimeout(async () => {
+                try {
+                    const app = initializeApp(firebaseConfig);
+                    auth = getAuth(app); db = getFirestore(app);
+                    const initAuth = async () => {
+                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                            await signInWithCustomToken(auth, __initial_auth_token);
+                        } else {
+                            await signInAnonymously(auth);
+                        }
+                    };
+                    await initAuth();
+                    onAuthStateChanged(auth, async (u) => {
+                        if (u) {
+                            user = u;
+                            const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data');
+                            const snap = await getDoc(docRef);
+                            if (snap.exists()) {
+                                const saved = snap.data();
+                                window.state = { ...window.state, ...saved };
+                            }
+                        }
+                    });
+                } catch (e) { console.error("Uplink failure."); }
+            }, 100);
+            document.addEventListener('fullscreenchange', () => {
+                if (!document.fullscreenElement) {
+                    if (window.state.screen !== 'boot') window.state.lastScreen = window.state.screen;
+                    window.state.screen = 'boot';
+                    renderUI();
+                }
+            });
+            
+            // Drag Logic
+            let draggedEl = null;
+            let offset = {x:0, y:0};
+            document.addEventListener('mousedown', (e) => {
+                if(e.target.closest('.draggable')) {
+                    draggedEl = e.target.closest('.draggable');
+                    const rect = draggedEl.getBoundingClientRect();
+                    offset = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+                }
+            });
+            document.addEventListener('mousemove', (e) => {
+                if(draggedEl) {
+                    draggedEl.style.left = (e.clientX - offset.x) + 'px';
+                    draggedEl.style.top = (e.clientY - offset.y) + 'px';
+                    draggedEl.style.right = 'auto'; // Disable right align once dragged
+                }
+            });
+            document.addEventListener('mouseup', () => { draggedEl = null; });
+        }
+        async function save() {
+            localStorage.setItem('vanguard_save_data', JSON.stringify(window.state));
+            if (!user) return;
+            const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data');
+            await setDoc(docRef, { ...window.state, screen: undefined }, { merge: true });
+        }
+        function getMapPath(mapKey) {
+            const map = MAPS[mapKey] || MAPS['outpost'];
+            const w = canvas ? canvas.width : window.innerWidth;
+            const h = canvas ? canvas.height : window.innerHeight;
+            return map.path.map(p => ({ x: p.x * w, y: p.y * h }));
+        }
+        
+        function getMapZones(mapKey) {
+            const map = MAPS[mapKey] || MAPS['outpost'];
+            const w = canvas ? canvas.width : window.innerWidth;
+            const h = canvas ? canvas.height : window.innerHeight;
+            return (map.zones || []).map(z => ({ x: z.x * w, y: z.y * h, r: z.r, type: z.type }));
+        }
+        function isPointOnPath(x, y, path) {
+            const threshold = 35;
+            for (let i = 0; i < path.length - 1; i++) {
+                const p1 = path[i]; const p2 = path[i+1];
+                const l2 = Math.pow(p1.x - p2.x, 2) + Math.pow(p1.y - p2.y, 2);
+                if (l2 === 0) continue;
+                let t = ((x - p1.x) * (p2.x - p1.x) + (y - p1.y) * (p2.y - p1.y)) / l2;
+                t = Math.max(0, Math.min(1, t));
+                const dist = Math.hypot(x - (p1.x + t * (p2.x - p1.x)), y - (p1.y + t * (p2.y - p1.y)));
+                if (dist < threshold) return true;
+            }
+            return false;
+        }
+        class Soldier {
+            constructor(x, y, tower) {
+                this.x = x; this.y = y; this.tower = tower;
+                this.hp = 100; this.maxHp = 100; this.damage = 1.5;
+            }
+            draw() {
+                ctx.fillStyle = '#e67e22'; ctx.beginPath();
+                ctx.arc(this.x, this.y, 6, 0, Math.PI*2); ctx.fill();
+                ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.stroke();
+            }
+        }
+        class Enemy {
+            constructor(round, mapKey, isBoss = false, typeOverride = null, startNode = 0, startPos = null) {
+                const path = getMapPath(mapKey);
+                this.mapKey = mapKey;
+                this.nodeIndex = startNode;
+                if (startPos) { this.x = startPos.x; this.y = startPos.y; } 
+                else { this.x = path[0].x; this.y = path[0].y; }
+                
+                this.isBoss = isBoss;
+                const baseHealth = isBoss ? 4500 : 100;
+                this.maxHp = baseHealth * Math.pow(1.3, round - 2);
+                this.baseSpeed = isBoss ? 0.2 : 0.6;
+                this.reward = 5;
+                this.size = isBoss ? 45 : 20;
+                this.distTravelled = 0;
+                
+                this.type = typeOverride || 'standard';
+                // Variant Logic
+                if (!typeOverride && !isBoss && round > 5 && Math.random() < 0.2) {
+                     const r = Math.random();
+                     if (r < 0.2) this.type = 'shielded';
+                     else if (r < 0.4) this.type = 'stealth';
+                     else if (r < 0.6) this.type = 'regen'; 
+                     else if (r < 0.8) this.type = 'medic'; 
+                     else if (r < 0.9) this.type = 'apc'; 
+                     else this.type = 'swarmer';
+                }
+                if (this.type === 'shielded') {
+                    this.shield = this.maxHp * 0.5; this.maxShield = this.shield; this.baseSpeed *= 0.8;
+                } else if (this.type === 'swarmer') {
+                    this.maxHp *= 0.5; this.baseSpeed *= 1.4;
+                } else if (this.type === 'mini') {
+                    this.size = 10; this.baseSpeed *= 1.5; this.reward = 1;
+                } else if (this.type === 'regen') {
+                    this.maxHp *= 0.8; this.baseSpeed *= 0.9;
+                } else if (this.type === 'medic') {
+                    this.maxHp *= 1.2; this.baseSpeed *= 0.8; this.color = '#fff';
+                } else if (this.type === 'apc') {
+                    this.maxHp *= 3.0; this.baseSpeed *= 0.4; this.size = 30; this.reward = 15;
+                }
+                this.hp = this.maxHp;
+                this.frozen = 0; this.burnStacks = 0; this.stunned = 0; this.revealed = false; this.suppressed = 0;
+                this.empTimer = 0; this.medicTimer = 0;
+            }
+            takeDamage(amount, damageType) {
+                if (this.shield > 0) {
+                    if (damageType === 'energy') amount *= 2; 
+                    if (damageType === 'physical') amount *= 0.5; 
+                    this.shield -= amount;
+                    if (this.shield < 0) { this.hp += this.shield; this.shield = 0; }
+                } else {
+                    this.hp -= amount;
+                }
+            }
+            update() {
+                if (this.stunned > 0) { this.stunned--; return 'ok'; }
+                if (this.burnStacks > 0) { this.hp -= (this.burnStacks * 0.1); }
+                if (this.type === 'regen' && this.hp < this.maxHp) this.hp += this.maxHp * 0.005; 
+                
+                // Medic Logic
+                if (this.type === 'medic') {
+                    this.medicTimer++;
+                    if (this.medicTimer > 50) {
+                        activeSession.enemies.forEach(e => {
+                            if (e !== this && Math.hypot(e.x - this.x, e.y - this.y) < 100 && e.hp < e.maxHp) {
+                                e.hp += 20;
+                                ctx.beginPath(); ctx.moveTo(this.x, this.y); ctx.lineTo(e.x, e.y);
+                                ctx.strokeStyle = '#00ff00'; ctx.stroke();
+                            }
+                        });
+                        this.medicTimer = 0;
+                    }
+                }
+                // Storm Shield Regen
+                if (activeSession && activeSession.weather.id === 'storm' && this.shield < this.maxShield) {
+                    this.shield = Math.min(this.maxShield, this.shield + (this.maxShield * 0.01));
+                }
+                
+                const path = getMapPath(this.mapKey);
+                const target = path[this.nodeIndex + 1];
+                if (!target) return 'escaped';
+                
+                const dx = target.x - this.x; const dy = target.y - this.y;
+                const distance = Math.hypot(dx, dy);
+                let currentSpeed = this.baseSpeed;
+                if (this.frozen > 0) { currentSpeed *= 0.5; this.frozen--; }
+                if (this.suppressed > 0) { currentSpeed *= 0.7; this.suppressed--; } 
+                
+                if (activeSession && activeSession.weather.combat.speed) currentSpeed *= activeSession.weather.combat.speed;
+                if (activeSession) {
+                    const zones = getMapZones(this.mapKey);
+                    zones.forEach(z => { if (z.type === 'hazard' && Math.hypot(this.x - z.x, this.y - z.y) < z.r) { currentSpeed *= 0.6; this.hp -= this.maxHp * 0.001; } });
+                }
+                
+                if (distance < currentSpeed) { 
+                    this.x = target.x; this.y = target.y; this.nodeIndex++; 
+                } else { 
+                    this.x += (dx / distance) * currentSpeed; 
+                    this.y += (dy / distance) * currentSpeed; 
+                    this.distTravelled += currentSpeed;
+                }
+                return 'ok';
+            }
+            
+            draw() {
+                if (this.type === 'stealth' && !this.revealed) {
+                    const nearTower = activeSession.towers.some(t => Math.hypot(t.x - this.x, t.y - this.y) < 100);
+                    if (!nearTower) { ctx.globalAlpha = 0.1; } else { ctx.globalAlpha = 0.6; }
+                }
+                ctx.save(); ctx.translate(this.x, this.y);
+                const healthPct = this.hp / this.maxHp;
+                if (this.frozen > 0) ctx.fillStyle = '#74ebd5';
+                else if (this.burnStacks > 0) ctx.fillStyle = '#e17055';
+                else if (this.stunned > 0) ctx.fillStyle = '#feca57';
+                else if (this.type === 'swarmer' || this.type === 'mini') ctx.fillStyle = '#e056fd';
+                else if (this.type === 'regen') ctx.fillStyle = '#2ecc71';
+                else if (this.type === 'medic') ctx.fillStyle = '#ffffff';
+                else if (this.type === 'apc') ctx.fillStyle = '#7f8c8d';
+                else ctx.fillStyle = this.isBoss ? '#c0392b' : '#2c3e50';
+                
+                ctx.strokeStyle = `rgba(0, 255, 128, ${healthPct})`;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                if (this.isBoss) { ctx.moveTo(-22, -22); ctx.lineTo(22, 0); ctx.lineTo(-22, 22); ctx.closePath(); }
+                else if (this.type === 'medic') { ctx.fillRect(-8, -3, 16, 6); ctx.fillRect(-3, -8, 6, 16); } 
+                else if (this.type === 'apc') { ctx.fillRect(-15, -10, 30, 20); }
+                else { ctx.roundRect(-this.size/2, -this.size/2, this.size, this.size, 4); }
+                ctx.fill(); ctx.stroke(); 
+                if (this.shield > 0) { ctx.beginPath(); ctx.arc(0,0, this.size, 0, Math.PI*2); ctx.strokeStyle = '#3498db'; ctx.lineWidth = 3; ctx.stroke(); }
+                if (this.suppressed > 0) { ctx.fillStyle = 'rgba(255, 255, 0, 0.5)'; ctx.fillText("!", 10, -10); }
+                ctx.restore(); ctx.globalAlpha = 1.0;
+            }
+        }
+        function drawTower(t, opacity = 1) {
+            ctx.save(); ctx.translate(t.x, t.y); ctx.globalAlpha = opacity;
+            
+            if (t.synergy) {
+                ctx.strokeStyle = '#00ff80'; ctx.lineWidth = 1; ctx.setLineDash([2, 2]);
+                ctx.beginPath(); ctx.arc(0,0, 22, 0, Math.PI*2); ctx.stroke(); ctx.setLineDash([]);
+            }
+            if (t.stunned > 0) {
+                ctx.strokeStyle = '#3498db'; ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.moveTo(-10, -10); ctx.lineTo(10, 10); ctx.moveTo(10, -10); ctx.lineTo(-10, 10); ctx.stroke();
+            }
+            // Veteran Rank
+            if (t.kills >= 50) { ctx.fillStyle = '#f1c40f'; ctx.beginPath(); ctx.moveTo(0, -20); ctx.lineTo(5, -25); ctx.lineTo(-5, -25); ctx.fill(); ctx.moveTo(0, -26); ctx.lineTo(5, -31); ctx.lineTo(-5, -31); ctx.fill(); }
+            else if (t.kills >= 20) { ctx.fillStyle = '#bdc3c7'; ctx.beginPath(); ctx.moveTo(0, -20); ctx.lineTo(5, -25); ctx.lineTo(-5, -25); ctx.fill(); }
+            if (t.spec) { ctx.shadowBlur = 10; ctx.shadowColor = t.spec === 'damage' ? '#ff0000' : '#ffff00'; }
+            ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(0, 0, 16, 0, Math.PI*2); ctx.fill();
+            ctx.shadowBlur = 0; ctx.strokeStyle = t.color; ctx.lineWidth = 2; ctx.stroke();
+            
+            if (t.type === 'combat' || t.type === 'spawner' || t.type === 'mine') {
+                if (t.type === 'mine') {
+                     ctx.fillStyle = 'red'; ctx.beginPath(); ctx.arc(0,0, 5, 0, Math.PI*2); ctx.fill();
+                     ctx.strokeStyle = 'red'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0,0, 10, 0, Math.PI*2); ctx.stroke();
+                } else {
+                    let angle = 0;
+                    if (activeSession && t.targetId) {
+                        const target = activeSession.enemies.find(e => e === t.targetId);
+                        if (target) angle = Math.atan2(target.y - t.y, target.x - t.x);
+                    }
+                    ctx.rotate(angle);
+                    ctx.fillStyle = t.color;
+                    switch(t.barrel) {
+                        case 'double': ctx.fillRect(8, -7, 18, 4); ctx.fillRect(8, 3, 18, 4); break;
+                        case 'needle': ctx.fillRect(8, -1.5, 30, 3); break;
+                        case 'dish': ctx.beginPath(); ctx.arc(12, 0, 10, -Math.PI/2, Math.PI/2); ctx.stroke(); break;
+                        case 'orb': ctx.beginPath(); ctx.arc(12, 0, 7, 0, Math.PI*2); ctx.fill(); break;
+                        case 'box': ctx.fillRect(8, -8, 16, 16); break;
+                        case 'tri': ctx.fillRect(8, -8, 12, 3); ctx.fillRect(8, -1.5, 18, 3); ctx.fillRect(8, 5, 12, 3); break;
+                        case 'hut': ctx.fillRect(-8, -8, 16, 16); break;
+                        case 'wave': ctx.beginPath(); ctx.arc(0, 0, 12, 0, Math.PI*2); ctx.stroke(); ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI*2); ctx.stroke(); break;
+                        case 'spike': ctx.beginPath(); ctx.moveTo(10,0); ctx.lineTo(20, 5); ctx.lineTo(20, -5); ctx.fill(); break;
+                        default: ctx.fillRect(8, -3, 22, 6);
+                    }
+                }
+            } else {
+                ctx.fillStyle = t.color;
+                if (t.barrel === 'cross') { ctx.fillRect(-10, -2, 20, 4); ctx.fillRect(-2, -10, 4, 20); }
+                if (t.barrel === 'dollar') { ctx.font = 'bold 16px Courier'; ctx.fillText('$', -5, 6); }
+            }
+            
+            ctx.restore();
+        }
+        function getTarget(tower, enemies) {
+            const inRange = enemies.filter(e => {
+                if (e.x < 0 || e.x > canvas.width || e.y < 0 || e.y > canvas.height) return false;
+                const dist = Math.hypot(e.x - tower.x, e.y - tower.y);
+                if (e.type === 'stealth' && !e.revealed && dist > 100) return false;
+                return dist < tower.range;
+            });
+            if (inRange.length === 0) return null;
+            switch(tower.priority) {
+                case 'Last': return inRange.sort((a,b) => a.distTravelled - b.distTravelled)[0];
+                case 'Strongest': return inRange.sort((a,b) => b.hp - a.hp)[0];
+                case 'Weakest': return inRange.sort((a,b) => a.hp - b.hp)[0];
+                default: return inRange.sort((a,b) => b.distTravelled - a.distTravelled)[0];
+            }
+        }
+        window.showNotification = (title, msg) => {
+            window.state.notification = { title, msg, time: Date.now() };
+            SFX.ui();
+            renderUI();
+            setTimeout(() => {
+                if(window.state.notification && Date.now() - window.state.notification.time > 4000) {
+                    window.closeNotification();
+                }
+            }, 5000);
+        };
+        window.closeNotification = () => { window.state.notification = null; renderUI(); };
+        function updateGameLogic() {
+            if (!activeSession) return;
+            if (screenShake > 0) screenShake *= 0.9;
+            if (screenShake < 0.5) screenShake = 0;
+            if (window.state.bounty && !window.state.bounty.claimed) {
+                if (window.state.bounty.progress >= window.state.bounty.target) {
+                    window.state.bounty.claimed = true;
+                    window.state.gems += window.state.bounty.reward;
+                    SFX.gain();
+                    window.showNotification("BOUNTY CLAIMED", `TASK COMPLETE: +${window.state.bounty.reward} GEMS`);
+                }
+            }
+            const isOverload = activeSession.powers.overload.active && activeSession.powers.overload.endTime > Date.now();
+            if (activeSession.powers.overload.active && !isOverload) { activeSession.powers.overload.active = false; renderUI(); }
+            if (activeSession.spawnCount > 0 && Date.now() > activeSession.nextSpawn) {
+                activeSession.canScavenge = false; // Disable Scavenge when spawn starts
+                renderUI(); // Update UI to remove button
+                activeSession.enemies.push(new Enemy(activeSession.round, activeSession.map, activeSession.round % 10 === 0));
+                activeSession.spawnCount--; activeSession.nextSpawn = Date.now() + 1200; 
+            }
+            
+            activeSession.soldiers.forEach(s => {
+                const enemy = activeSession.enemies.find(e => Math.hypot(e.x-s.x, e.y-s.y) < 20);
+                if (enemy) { enemy.takeDamage(s.damage, 'physical'); enemy.frozen = 30; }
+            });
+            activeSession.towers.forEach(t => {
+                if (t.stunned > 0) { t.stunned--; return; } 
+                
+                t.cooldown--;
+                
+                t.synergy = false;
+                if (t.type === 'combat') {
+                    const neighbor = activeSession.towers.some(ot => ot !== t && ot.type === 'combat' && Math.hypot(ot.x - t.x, ot.y - t.y) < 50);
+                    if (neighbor) t.synergy = true;
+                }
+                
+                let vetMult = 1.0;
+                if (t.kills >= 50) vetMult = 1.2;
+                else if (t.kills >= 20) vetMult = 1.1;
+                // Mastery Mult
+                const masteryLevel = (window.state.mastery && window.state.mastery[t.id]) || 0;
+                const masteryMult = 1 + (masteryLevel * 0.05);
+                // Commander Mult
+                const cmdMult = 1 + (window.state.commander.level * 0.01);
+                const prestigeMult = 1 + (window.state.prestige * 0.1); 
+                let terrainBuff = 1; let rangeBuff = 1;
+                const zones = getMapZones(activeSession.map);
+                zones.forEach(z => {
+                    if (z.type === 'high_ground' && Math.hypot(t.x - z.x, t.y - z.y) < z.r) { terrainBuff = 1.2; rangeBuff = 1.2; }
+                });
+                
+                const weather = activeSession.weather;
+                if (weather.combat.range) rangeBuff *= weather.combat.range;
+                t.currentRange = t.range * rangeBuff * (t.spec === 'range' ? 1.3 : 1) * vetMult * masteryMult; 
+                
+                // Mine Logic
+                if (t.type === 'mine') {
+                    const hit = activeSession.enemies.find(e => Math.hypot(e.x - t.x, e.y - t.y) < 20);
+                    if (hit) {
+                        SFX.explosion();
+                        activeSession.bullets.push({x: t.x, y: t.y, type:'pulse', range: 80, life: 10, color: '#e74c3c'});
+                        activeSession.enemies.forEach(e => { if (Math.hypot(e.x - t.x, e.y - t.y) < 80) e.takeDamage(600, 'physical'); });
+                        t.dead = true;
+                        logComms("CLAYMORE DETONATED");
+                    }
+                    return;
+                }
+                if (t.type === 'combat') {
+                    const target = getTarget({ ...t, range: t.currentRange }, activeSession.enemies);
+                    t.targetId = target;
+                    
+                    if (target) {
+                        const synergyBoost = t.synergy ? 0.9 : 1.0; 
+                        const rateMultiplier = (isOverload ? 0.5 : 1.0) * (t.spec === 'speed' ? 0.7 : 1) * synergyBoost; 
+                        const isCrit = Math.random() < 0.1;
+                        const critMult = isCrit ? 2.0 : 1.0;
+                        // Global Damage Calc
+                        let globalDmgMult = (1 + (window.state.upgrades.damage * 0.1)) * prestigeMult * terrainBuff * critMult * vetMult * masteryMult * cmdMult;
+                        // Elite Perk: Cannon vs Bosses
+                        if (masteryLevel >= 5 && t.name === 'M1-ABRAMS' && target.isBoss) globalDmgMult *= 1.25;
+                        if (t.name === 'BEAM-SAT') {
+                            if (t.cooldown <= 0) {
+                                let d = t.damage * globalDmgMult;
+                                if (weather.combat.typeBuff === 'energy') d *= weather.combat.typeBuffVal;
+                                target.takeDamage(d, 'energy');
+                                target.revealed = true; t.cooldown = 1; 
+                            }
+                            return;
+                        }
+                        if (t.name === 'TESLA-COIL' && t.cooldown <= 0) {
+                            let chains = 0; let curr = target; const visited = [target];
+                            let d = t.damage * globalDmgMult;
+                             if (weather.combat.typeBuff === 'energy') d *= weather.combat.typeBuffVal;
+                            curr.takeDamage(d, 'energy');
+                            SFX.shoot();
+                            activeSession.bullets.push({x:t.x, y:t.y, tx:target.x, ty:target.y, life: 5, color: t.color, type: 'beam'});
+                            while(chains < 3) {
+                                const next = activeSession.enemies.find(e => !visited.includes(e) && Math.hypot(e.x - curr.x, e.y - curr.y) < 100);
+                                if (next) {
+                                    next.takeDamage(d * 0.7, 'energy');
+                                    activeSession.bullets.push({x:curr.x, y:curr.y, tx:next.x, ty:next.y, life: 5, color: t.color, type: 'beam'});
+                                    visited.push(next); curr = next; chains++;
+                                } else { break; }
+                            }
+                            t.cooldown = (t.rate * (1 - (window.state.upgrades.fireRate * 0.05))) * rateMultiplier;
+                            return;
+                        }
+                        if (t.name === 'CRYODOME') {
+                            if (t.cooldown <= 0) {
+                                activeSession.enemies.forEach(e => {
+                                    if (Math.hypot(e.x - t.x, e.y - t.y) <= t.currentRange) e.frozen = 60; 
+                                });
+                                activeSession.bullets.push({x:t.x, y:t.y, type:'pulse', range: t.currentRange, life: 15, color: 'rgba(129, 236, 236, 0.5)'});
+                                t.cooldown = t.rate * rateMultiplier;
+                            }
+                            return;
+                        }
+                        if (t.name === 'RESONATOR' || t.name === 'ION-BURST') {
+                            if (t.cooldown <= 0) {
+                                SFX.explosion();
+                                activeSession.enemies.forEach(e => {
+                                    if (Math.hypot(e.x - t.x, e.y - t.y) <= t.currentRange) {
+                                        e.takeDamage(t.damage * globalDmgMult, 'energy');
+                                        e.stunned = t.name === 'ION-BURST' ? 200 : 20;
+                                        e.revealed = true;
+                                        if (t.name === 'ION-BURST') e.shield = 0; 
+                                    }
+                                });
+                                activeSession.bullets.push({x:t.x, y:t.y, type:'pulse', range: t.currentRange, life: 10, color: t.color});
+                                t.cooldown = t.rate * rateMultiplier;
+                            }
+                            return;
+                        }
+                        if (t.cooldown <= 0) {
+                            SFX.shoot();
+                            activeSession.bullets.push({
+                                x:t.x, y:t.y, tx:target.x, ty:target.y, life: 25, color: t.color, isCrit: isCrit,
+                                onHit: (enemy, x, y) => {
+                                    SFX.hit();
+                                    let dmg = t.damage * globalDmgMult;
+                                    let type = 'physical';
+                                    if (t.name === 'NOVA-CORE' || t.name === 'MALWARE') type = 'energy';
+                                    if (weather.combat.typeBuff === type) dmg *= weather.combat.typeBuffVal;
+                                    if (weather.combat.typeDebuff === type) dmg *= weather.combat.val;
+                                    if (t.name === 'HELLFIRE' || t.name === 'MINI-NUKE') {
+                                        const radius = t.name === 'MINI-NUKE' ? 120 : 60;
+                                        activeSession.bullets.push({x: x, y: y, type:'pulse', range: radius, life: 10, color: '#e74c3c'});
+                                        SFX.explosion();
+                                        screenShake = 15;
+                                        activeSession.enemies.forEach(e => {
+                                            if (Math.hypot(e.x - x, e.y - y) < radius) e.takeDamage(dmg, 'physical');
+                                        });
+                                    } else if (enemy) { 
+                                        if (t.name === 'NOVA-CORE') { enemy.burnStacks += 5; enemy.takeDamage(dmg, type); }
+                                        else if (t.name === 'MALWARE') { enemy.burnStacks += 50; enemy.takeDamage(dmg, type); }
+                                        else { 
+                                            enemy.takeDamage(dmg, type);
+                                            // Suppression Logic
+                                            if (t.name === 'PHALANX' || t.name === 'M1-ABRAMS') enemy.suppressed = 20; 
+                                        }
+                                        if (enemy.hp <= 0) {
+                                            t.kills++; 
+                                            // Commander XP
+                                            window.state.commander.xp += 1;
+                                            if (window.state.commander.xp > window.state.commander.level * 100) {
+                                                window.state.commander.xp = 0;
+                                                window.state.commander.level++;
+                                                window.showNotification("RANK UP", `COMMANDER LEVEL ${window.state.commander.level}`);
+                                            }
+                                        }
+                                    }
+                                }
+                            });
+                            t.cooldown = (t.rate * (1 - (window.state.upgrades.fireRate * 0.05))) * rateMultiplier;
+                        }
+                    }
+                } else if (t.type === 'support') {
+                    if (t.cooldown <= 0) {
+                        const rateMultiplier = isOverload ? 0.5 : 1.0;
+                        if (t.name === "MED-STATION") activeSession.lives = Math.min(200, activeSession.lives + 1);
+                        if (t.name === "CRYPTO-MINER") activeSession.money += 40;
+                        t.cooldown = t.rate * rateMultiplier;
+                    }
+                }
+            });
+            activeSession.towers = activeSession.towers.filter(t => !t.dead);
+            let newEnemies = [];
+            activeSession.enemies = activeSession.enemies.filter(e => {
+                const s = e.update();
+                if (s === 'escaped') { 
+                    const hpFactor = e.hp / e.maxHp;
+                    activeSession.lives -= Math.ceil((e.isBoss ? 25 : 2) * hpFactor); 
+                    logComms("BREACH DETECTED: HULL DAMAGED");
+                    return false; 
+                }
+                if (e.hp <= 0) {
+                    activeSession.money += Math.floor(e.reward);
+                    window.state.achievements.earned += e.reward;
+                    window.state.achievements.kills++;
+                    SFX.kill();
+                    if (e.isBoss) {
+                        const scrapDrop = 1 + Math.floor(Math.random() * 2);
+                        window.state.scrap += scrapDrop;
+                        window.showNotification("BOSS DESTROYED", `RECOVERED ${scrapDrop} SCRAP`);
+                    }
+                    if (e.type === 'swarmer') {
+                        newEnemies.push(new Enemy(activeSession.round, activeSession.map, false, 'mini', e.nodeIndex, {x:e.x-10, y:e.y}));
+                        newEnemies.push(new Enemy(activeSession.round, activeSession.map, false, 'mini', e.nodeIndex, {x:e.x+10, y:e.y}));
+                    }
+                    if (e.type === 'apc') {
+                        for(let i=0; i<3; i++) newEnemies.push(new Enemy(activeSession.round, activeSession.map, false, 'standard', e.nodeIndex, {x:e.x + (Math.random()*20-10), y:e.y + (Math.random()*20-10)}));
+                    }
+                    if (window.state.bounty && !window.state.bounty.claimed) {
+                        if (window.state.bounty.id === 'kill_100') window.state.bounty.progress++;
+                        if (window.state.bounty.id === 'boss_5' && e.isBoss) window.state.bounty.progress++;
+                    }
+                    const prestigeGemMult = (1 + (window.state.prestige * 0.2)) * (window.state.hardcore ? 2 : 1); 
+                    const baseChance = (0.50 + (window.state.upgrades.gemRate * 0.25)) * prestigeGemMult;
+                    let gemsAwarded = Math.floor(baseChance); 
+                    if (Math.random() < (baseChance - gemsAwarded)) gemsAwarded++;
+                    if (gemsAwarded > 0) SFX.gain();
+                    window.state.gems += gemsAwarded;
+                    return false;
+                }
+                return true;
+            });
+            activeSession.enemies.push(...newEnemies);
+            activeSession.bullets = activeSession.bullets.filter(b => {
+                b.life--;
+                if (b.type !== 'pulse' && b.type !== 'beam') {
+                    if (b.life < 10) { 
+                        if (b.life === 1 && b.onHit) {
+                             const enemy = activeSession.enemies.find(e => Math.hypot(e.x - b.tx, e.y - b.ty) < 40);
+                             if (enemy) b.onHit(enemy, b.tx, b.ty); else if (b.onHit) b.onHit(null, b.tx, b.ty);
+                        }
+                    }
+                }
+                return b.life > 0;
+            });
+            if (activeSession.enemies.length === 0 && activeSession.spawnCount === 0) {
+                activeSession.round++; 
+                activeSession.money += 50; 
+                window.state.achievements.waves++;
+                logComms(`SECTOR ${activeSession.round} SECURED`);
+                // Scavenge Opportunity
+                activeSession.canScavenge = true;
+                const interest = Math.min(500, Math.floor(activeSession.money * 0.1));
+                if (interest > 0) {
+                    activeSession.money += interest;
+                    // Notification removed as per request
+                }
+                if (activeSession.round % 3 === 0) {
+                    const event = WEATHER_EVENTS[Math.floor(Math.random() * WEATHER_EVENTS.length)];
+                    activeSession.weather = event;
+                    // Notification removed, moved to sidebar
+                }
+                if (window.state.bounty && !window.state.bounty.claimed && window.state.bounty.id === 'wave_20' && activeSession.round >= 20) {
+                     window.state.bounty.progress = 20;
+                }
+                const target = MAPS[activeSession.map].target;
+                if (activeSession.round > target) window.state.gems += 100;
+                if (activeSession.round > target && !window.state.completedMaps.includes(activeSession.map)) {
+                    window.state.completedMaps.push(activeSession.map);
+                    window.state.gems += 500; 
+                    window.showNotification("SECTOR SECURED", "NEW REGION ACCESS AUTHORIZED.");
+                }
+                activeSession.spawnCount = (activeSession.round % 10 === 0) ? 1 : (6 + Math.floor(activeSession.round * 1.2));
+                // Increased delay to 5s (5000ms) for scavenge window
+                activeSession.nextSpawn = Date.now() + 5000;
+                save();
+            }
+            if (activeSession.lives <= 0) {
+                if (activeSession.round > window.state.highScore) window.state.highScore = activeSession.round;
+                window.state.screen = 'menu'; save(); renderUI();
+            }
+        }
+        function drawGame() {
+            if (!activeSession) return;
+            ctx.clearRect(0,0,canvas.width, canvas.height);
+            if (screenShake > 0) {
+                const dx = (Math.random() - 0.5) * screenShake; const dy = (Math.random() - 0.5) * screenShake;
+                ctx.translate(dx, dy);
+            }
+            
+            // DRAW ZONES
+            const zones = getMapZones(activeSession.map);
+            const time = Date.now() / 1000;
+            zones.forEach(z => {
+                const grad = ctx.createRadialGradient(z.x, z.y, 0, z.x, z.y, z.r);
+                if (z.type === 'hazard') {
+                    grad.addColorStop(0, 'rgba(100, 0, 0, 0.4)'); 
+                    grad.addColorStop(0.8, 'rgba(231, 76, 60, 0.2)');
+                    grad.addColorStop(1, 'rgba(231, 76, 60, 0.0)'); 
+                    ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(z.x, z.y, z.r, 0, Math.PI*2); ctx.fill();
+                    ctx.save(); ctx.beginPath(); ctx.arc(z.x, z.y, z.r, 0, Math.PI*2); ctx.clip();
+                    ctx.strokeStyle = 'rgba(231, 76, 60, 0.15)'; ctx.lineWidth = 4;
+                    const offset = (time * 20) % 20;
+                    for(let i = -z.r; i < z.r; i+=15) {
+                        ctx.beginPath(); ctx.moveTo(z.x + i - 10 + offset, z.y - z.r); ctx.lineTo(z.x + i + 10 + offset, z.y + z.r); ctx.stroke();
+                    }
+                    ctx.restore();
+                    ctx.save(); ctx.translate(z.x, z.y); ctx.rotate(-time * 0.5);
+                    ctx.strokeStyle = '#c0392b'; ctx.lineWidth = 2; ctx.setLineDash([15, 25]);
+                    ctx.beginPath(); ctx.arc(0, 0, z.r, 0, Math.PI*2); ctx.stroke(); ctx.restore();
+                } else {
+                    grad.addColorStop(0, 'rgba(241, 196, 15, 0.05)'); 
+                    grad.addColorStop(0.6, 'rgba(241, 196, 15, 0.1)');
+                    grad.addColorStop(1, 'rgba(241, 196, 15, 0.0)');
+                    ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(z.x, z.y, z.r, 0, Math.PI*2); ctx.fill();
+                    ctx.strokeStyle = 'rgba(241, 196, 15, 0.5)'; ctx.lineWidth = 1;
+                    ctx.beginPath(); ctx.arc(z.x, z.y, z.r * 0.7, 0, Math.PI*2); ctx.stroke();
+                    ctx.save(); ctx.translate(z.x, z.y); ctx.rotate(time * 0.2);
+                    ctx.strokeStyle = '#f1c40f'; ctx.lineWidth = 2;
+                    ctx.beginPath(); ctx.arc(0, 0, z.r, 0, 1.5); ctx.stroke();
+                    ctx.beginPath(); ctx.arc(0, 0, z.r, Math.PI, Math.PI + 1.5); ctx.stroke(); ctx.restore();
+                }
+                ctx.fillStyle = z.type === 'hazard' ? '#e74c3c' : '#f1c40f';
+                ctx.font = "bold 10px Orbitron"; ctx.textAlign = "center";
+                ctx.fillText(z.type === 'hazard' ? "HAZARD ZONE" : "HIGH GROUND", z.x, z.y - z.r - 8); ctx.textAlign = "start";
+            });
+            const path = getMapPath(activeSession.map);
+            ctx.strokeStyle = 'rgba(0, 255, 128, 0.2)'; ctx.lineWidth = 40; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+            ctx.beginPath(); ctx.moveTo(path[0].x, path[0].y); path.forEach(p => ctx.lineTo(p.x, p.y)); ctx.stroke();
+            
+            activeSession.soldiers.forEach(s => s.draw());
+            activeSession.towers.forEach(t => drawTower(t));
+            activeSession.towers.filter(t => t.name === 'BEAM-SAT' && t.targetId).forEach(t => {
+                const target = activeSession.enemies.find(e => e === t.targetId);
+                if (target) {
+                    ctx.beginPath(); ctx.moveTo(t.x, t.y); ctx.lineTo(target.x, target.y);
+                    ctx.strokeStyle = t.color; ctx.lineWidth = 4; ctx.stroke();
+                    ctx.shadowBlur = 10; ctx.shadowColor = t.color; ctx.stroke(); ctx.shadowBlur = 0;
+                }
+            });
+            activeSession.enemies.forEach(e => e.draw());
+            
+            activeSession.bullets.forEach(b => {
+                if (b.type === 'pulse') {
+                    ctx.beginPath(); ctx.arc(b.x, b.y, b.range * (1 - b.life/15), 0, Math.PI*2);
+                    ctx.fillStyle = b.color; ctx.globalAlpha = b.life / 15; ctx.fill(); ctx.globalAlpha = 1;
+                } else if (b.type === 'beam') {
+                    ctx.strokeStyle = b.color; ctx.lineWidth = 2; 
+                    ctx.beginPath(); ctx.moveTo(b.x, b.y); ctx.lineTo(b.tx, b.ty); ctx.stroke();
+                } else {
+                    ctx.strokeStyle = b.isCrit ? '#ffff00' : b.color; 
+                    ctx.lineWidth = b.isCrit ? 4 : 3; 
+                    ctx.beginPath(); ctx.moveTo(b.x, b.y); ctx.lineTo(b.tx, b.ty); ctx.stroke();
+                }
+            });
+            const m = activeSession.mouse;
+            if (activeSession.powerMode === 'orbital') {
+                ctx.beginPath(); ctx.arc(m.x, m.y, 150, 0, Math.PI*2);
+                ctx.strokeStyle = 'rgba(255, 0, 0, 0.5)'; ctx.lineWidth = 2; ctx.stroke();
+                ctx.fillStyle = 'rgba(255, 0, 0, 0.1)'; ctx.fill();
+                ctx.beginPath(); ctx.moveTo(m.x-10, m.y); ctx.lineTo(m.x+10, m.y);
+                ctx.moveTo(m.x, m.y-10); ctx.lineTo(m.x, m.y+10); ctx.stroke();
+                ctx.fillStyle = "#ff0000"; ctx.font = "10px JetBrains Mono"; ctx.fillText("AWAITING TARGET COORDINATES", m.x + 15, m.y - 15);
+            }
+            if (activeSession.placing) {
+                const def = TOWER_DATA[activeSession.placing];
+                const cost = Math.floor(def.cost * (1 - (window.state.upgrades.discount * 0.07)));
+                const path = getMapPath(activeSession.map);
+                const onPath = isPointOnPath(m.x, m.y, path);
+                const validPos = (def.type === 'mine' && onPath) || (def.type !== 'mine' && !onPath);
+                
+                const nearTower = activeSession.towers.some(t => Math.hypot(t.x-m.x, t.y-m.y) < 35);
+                const canPlace = validPos && !nearTower && activeSession.money >= cost;
+                
+                ctx.beginPath(); ctx.arc(m.x, m.y, def.range, 0, Math.PI*2);
+                ctx.fillStyle = canPlace ? 'rgba(0, 255, 128, 0.08)' : 'rgba(255, 0, 0, 0.12)';
+                ctx.fill(); drawTower({x: m.x, y: m.y, color: def.color, range: def.range, barrel: def.barrel, type: def.type}, 0.4);
+            }
+            if (activeSession.deployingFor) {
+                ctx.setLineDash([5, 5]); ctx.strokeStyle = '#e67e22'; ctx.beginPath();
+                ctx.arc(activeSession.deployingFor.x, activeSession.deployingFor.y, activeSession.deployingFor.range, 0, Math.PI*2);
+                ctx.stroke(); ctx.setLineDash([]);
+            }
+            
+            if (screenShake > 0) ctx.setTransform(1, 0, 0, 1, 0, 0);
+            if (activeSession.powers.overload.active) {
+                ctx.save(); ctx.strokeStyle = `rgba(255, 255, 0, ${0.1 + Math.random() * 0.1})`;
+                ctx.lineWidth = 10; ctx.strokeRect(0,0, canvas.width, canvas.height);
+                ctx.fillStyle = "rgba(255, 255, 0, 0.8)"; ctx.font = "bold 20px Orbitron";
+                ctx.fillText("SYSTEM OVERLOAD: FIRE RATE X2", canvas.width/2 - 150, 40); ctx.restore();
+            }
+            updateHUD();
+        }
+        function gameLoop(timestamp) {
+            if (window.state.screen !== 'game') return;
+            if (timestamp === undefined) timestamp = performance.now();
+            if (!lastTime) lastTime = timestamp;
+            const deltaTime = timestamp - lastTime;
+            lastTime = timestamp;
+            const speed = activeSession.speed || 1;
+            accumulator += Math.min(deltaTime, 250) * speed;
+            while (accumulator >= MS_PER_TICK) { updateGameLogic(); accumulator -= MS_PER_TICK; }
+            drawGame(); animId = requestAnimationFrame(gameLoop);
+        }
+        function updateHUD() {
+            const ids = ['money', 'gems', 'lives', 'round'];
+            ids.forEach(id => {
+                const el = document.getElementById(`side-${id}`);
+                if (el) {
+                    if (id === 'money') el.innerText = `$${formatNumber(activeSession.money)}`;
+                    else if (id === 'gems') el.innerText = `${formatNumber(window.state.gems)} 💎`;
+                    else el.innerText = id === 'lives' ? Math.max(0, activeSession.lives) : activeSession.round;
+                }
+            });
+            // Removed critical failure update as CSS was removed
+            // Bounty Update
+            const bountyBar = document.getElementById('bounty-bar');
+            const bountyText = document.getElementById('bounty-text');
+            if(bountyBar && window.state.bounty) {
+                 const pct = Math.min(100, (window.state.bounty.progress / window.state.bounty.target) * 100);
+                 bountyBar.style.width = `${pct}%`;
+                 if(bountyText) bountyText.innerText = `${window.state.bounty.progress}/${window.state.bounty.target}`;
+            }
+            // Power CDs
+            ['orbital', 'overload', 'repair'].forEach(key => {
+                const p = activeSession.powers[key];
+                const btn = document.getElementById(`btn-${key}`);
+                const overlay = document.getElementById(`cd-${key}`);
+                if (btn && overlay) {
+                    const now = Date.now();
+                    const timeLeft = Math.max(0, p.cd - now);
+                    const pct = (timeLeft / p.maxCd) * 100;
+                    overlay.style.height = `${pct}%`;
+                    overlay.innerText = ""; 
+                    if (timeLeft > 0) { btn.classList.add('opacity-50', 'cursor-not-allowed'); btn.disabled = true; }
+                    else { btn.classList.remove('opacity-50', 'cursor-not-allowed'); btn.disabled = false; }
+                }
+            });
+            
+            // Battle Log removed
+            
+            // Scavenge Button
+            const scavBtn = document.getElementById('btn-scavenge');
+            if (scavBtn) {
+                if (activeSession.canScavenge) scavBtn.style.display = 'block';
+                else scavBtn.style.display = 'none';
+            }
+            // Stats Update
+            if (activeSession.selectedTower) {
+                const t = activeSession.selectedTower;
+                const masteryLevel = (window.state.mastery && window.state.mastery[t.id]) || 0;
+                const masteryMult = 1 + (masteryLevel * 0.05);
+                const cmdMult = 1 + (window.state.commander.level * 0.01);
+                const prestigeMult = 1 + (window.state.prestige * 0.1);
+                
+                let terrainMult = 1;
+                let rangeBuff = 1;
+                if (activeSession.selectedTower.currentRange > activeSession.selectedTower.range) terrainMult = 1.2;
+                let weatherDmgMult = 1;
+                let weatherRangeMult = 1;
+                let type = t.type === 'combat' ? (t.name === 'NOVA-CORE' || t.name === 'MALWARE' ? 'energy' : 'physical') : 'none';
+                
+                if (activeSession.weather.combat.typeBuff === type) weatherDmgMult = activeSession.weather.combat.typeBuffVal;
+                if (activeSession.weather.combat.typeDebuff === type) weatherDmgMult = activeSession.weather.combat.val;
+                if (activeSession.weather.combat.range) weatherRangeMult = activeSession.weather.combat.range;
+                let dmg = (t.damage || 0) * (1 + (window.state.upgrades.damage * 0.1)) * prestigeMult * terrainMult * masteryMult * cmdMult * weatherDmgMult;
+                if(t.spec === 'damage') dmg *= 1.3;
+                let rng = (t.range * rangeBuff * weatherRangeMult);
+                if(t.spec === 'range') rng *= 1.3;
+                let fireRate = t.rate * (1 - (window.state.upgrades.fireRate * 0.05));
+                if(t.spec === 'speed') fireRate *= 0.7;
+                
+                const statDmg = document.getElementById('stat-dmg');
+                const statRng = document.getElementById('stat-rng');
+                const statRate = document.getElementById('stat-rate');
+                
+                if(statDmg) {
+                    statDmg.innerText = dmg.toFixed(0);
+                    statDmg.className = `text-sm font-bold ${weatherDmgMult > 1 ? 'text-green-400' : (weatherDmgMult < 1 ? 'text-red-400' : 'text-white')}`;
+                }
+                if(statRng) {
+                    statRng.innerText = rng.toFixed(0);
+                    statRng.className = `text-sm font-bold ${weatherRangeMult > 1 ? 'text-green-400' : (weatherRangeMult < 1 ? 'text-red-400' : 'text-white')}`;
+                }
+                if(statRate) statRate.innerText = (1000/ (fireRate * 10)).toFixed(1) + "/s";
+                
+                const vetLabel = document.getElementById('vet-label');
+                if(vetLabel) {
+                    if(t.kills >= 50) vetLabel.innerHTML = "<span class='text-yellow-400'>ELITE</span>";
+                    else if(t.kills >= 20) vetLabel.innerHTML = "<span class='text-gray-300'>VETERAN</span>";
+                    else vetLabel.innerText = "ROOKIE";
+                }
+            }
+        }
+        window.toggleSpeed = () => {
+            if (activeSession) {
+                activeSession.speed = activeSession.speed === 1 ? 3 : 1;
+                const btn = document.getElementById('speed-btn');
+                if (btn) btn.innerText = `SPEED: ${activeSession.speed}X`;
+            }
+        };
+        window.scavenge = () => {
+            if (!activeSession || !activeSession.canScavenge) return;
+            // Scavenge Logic: Multiplied by sector depth
+            const baseGain = Math.floor(activeSession.money / 100) + Math.floor(activeSession.lives / 20);
+            const scrapGain = baseGain * activeSession.round;
+            window.state.scrap += scrapGain;
+            window.showNotification("SECTOR SCAVENGED", `EXTRACTED ${scrapGain} SCRAP`);
+            window.setScreen('menu');
+        };
+        window.buyConsumable = (type, cost) => {
+            if (window.state.scrap >= cost) {
+                window.state.scrap -= cost;
+                window.state.inventory[type] = (window.state.inventory[type] || 0) + 1;
+                save(); renderUI();
+            }
+        };
+        window.upgradeMastery = (id) => {
+            const current = (window.state.mastery[id] || 0);
+            const cost = (current + 1) * 5;
+            if (window.state.scrap >= cost && current < 10) {
+                window.state.scrap -= cost;
+                window.state.mastery[id] = current + 1;
+                save(); renderUI();
+            }
+        };
+        window.useConsumable = () => {
+            if (window.state.hardcore) {
+                window.showNotification("HARDCORE MODE", "SUPPLY DROPS DISABLED.");
+                SFX.error();
+                return;
+            }
+            if (activeSession && !activeSession.usedConsumable && window.state.inventory.supply > 0) {
+                window.state.inventory.supply--;
+                activeSession.money += 5000;
+                activeSession.lives += 20;
+                activeSession.usedConsumable = true;
+                SFX.gain();
+                logComms("SUPPLY DROP RECEIVED");
+                save(); renderUI();
+            }
+        };
+        window.callAirstrike = () => {
+            if (!activeSession || activeSession.money < 500) { SFX.error(); return; }
+            activeSession.money -= 500;
+            SFX.explosion();
+            screenShake = 30;
+            logComms("AIRSTRIKE INBOUND");
+            // Damage all enemies
+            activeSession.enemies.forEach(e => e.takeDamage(2000, 'physical'));
+            // Visuals
+            for(let i=0; i<10; i++) {
+                setTimeout(() => {
+                    activeSession.bullets.push({x: Math.random() * canvas.width, y: Math.random() * canvas.height, type:'pulse', range: 100, life: 15, color: '#e74c3c'});
+                }, i * 100);
+            }
+        };
+        window.activatePower = (key) => {
+            if (!activeSession) return;
+            const power = activeSession.powers[key];
+            if (power.cd > Date.now()) { SFX.error(); return; }
+            
+            const cdReduc = 1 - (window.state.upgrades.cmdCooldown * 0.1); 
+            const effectBoost = 1 + (window.state.upgrades.cmdEffect * 0.2); 
+            if (key === 'orbital') {
+                if (activeSession.powerMode === 'orbital') { activeSession.powerMode = null; } 
+                else { activeSession.powerMode = 'orbital'; activeSession.placing = null; activeSession.deployingFor = null; SFX.ui(); }
+            } else if (key === 'overload') {
+                SFX.ui(); 
+                power.active = true; 
+                power.endTime = Date.now() + (5000 * effectBoost); 
+                power.cd = Date.now() + (power.maxCd * cdReduc);
+                window.showNotification("SYSTEM OVERLOAD", "ALL TURRET FIRE RATES DOUBLED.");
+                logComms("ALL UNITS: RAPID FIRE ENGAGED");
+            } else if (key === 'repair') {
+                SFX.ui(); 
+                const healAmount = 15 * effectBoost;
+                const maxHealth = 100 + (window.state.upgrades.shielding * 10);
+                
+                // Hardcore cap logic
+                if (window.state.hardcore && activeSession.lives >= 1) {
+                    window.showNotification("HARDCORE MODE", "REPAIR PROTOCOLS DISABLED.");
+                } else {
+                    activeSession.lives = Math.min(maxHealth, activeSession.lives + healAmount);
+                    window.showNotification("EMERGENCY REPAIR", `HULL INTEGRITY RESTORED (+${Math.floor(healAmount)}).`);
+                    logComms("REPAIR TEAMS DISPATCHED");
+                }
+                power.cd = Date.now() + (power.maxCd * cdReduc);
+            }
+            renderUI();
+        };
+        window.setSpec = (spec) => {
+             if(activeSession && activeSession.selectedTower) {
+                  activeSession.selectedTower.spec = spec;
+                  SFX.ui();
+                  renderUI();
+             }
+        };
+        window.verifyCode = () => {
+            const input = document.getElementById('passcode');
+            if (input && input.value.toUpperCase() === 'OMEGA') { window.state.cheatsOpen = true; renderUI(); } 
+            else { alert("ACCESS DENIED"); }
+        };
+        window.cheatAction = (action, val) => {
+            if (action === 'gems') window.state.gems += parseInt(val);
+            if (action === 'scrap') window.state.scrap += parseInt(val);
+            if (action === 'unlockAll') { window.state.unlocked = Object.keys(TOWER_DATA); window.state.unlockedMaps = Object.keys(MAPS); }
+            if (action === 'rich') window.state.richStart = true;
+            if (action === 'close') window.state.cheatsOpen = false;
+            save(); renderUI();
+        };
+        window.requestReset = () => { window.state.resetConfirm = true; renderUI(); };
+        window.cancelReset = () => { window.state.resetConfirm = false; renderUI(); };
+        window.confirmReset = async () => {
+            localStorage.removeItem('vanguard_save_data');
+            if (user) {
+                const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data');
+                await setDoc(docRef, getInitialState());
+            }
+            window.state = getInitialState(); window.state.screen = 'boot'; renderUI();
+        };
+        
+        window.doPrestige = async () => {
+             const newPrestige = (window.state.prestige || 0) + 1;
+             await save();
+             localStorage.removeItem('vanguard_save_data');
+             const newState = getInitialState(newPrestige);
+             if (user) {
+                const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data');
+                await setDoc(docRef, newState);
+             }
+             window.state = newState; window.state.screen = 'boot'; renderUI();
+        };
+        window.toggleManual = () => { window.state.manualOpen = !window.state.manualOpen; renderUI(); };
+        window.toggleHardcore = () => { window.state.hardcore = !window.state.hardcore; renderUI(); };
+        window.sellTower = () => {
+            if (!activeSession || !activeSession.selectedTower) return;
+            const t = activeSession.selectedTower;
+            const refund = Math.floor(t.cost * 0.7);
+            activeSession.money += refund;
+            activeSession.towers = activeSession.towers.filter(tow => tow !== t);
+            activeSession.selectedTower = null;
+            SFX.gain();
+            renderUI();
+        };
+        
+        // Helper to save/restore scroll
+        function saveScroll() {
+            const scrolls = {};
+            document.querySelectorAll('.sidebar-scroll').forEach((el, i) => {
+                scrolls[i] = el.scrollTop;
+            });
+            return scrolls;
+        }
+        function restoreScroll(scrolls) {
+            document.querySelectorAll('.sidebar-scroll').forEach((el, i) => {
+                if (scrolls[i] !== undefined) el.scrollTop = scrolls[i];
+            });
+        }
+        
+        function renderUI() {
+            if (animId) cancelAnimationFrame(animId);
+            const savedScroll = saveScroll();
+            const root = document.getElementById('app');
+            
+            // MANUAL MODAL
+            let manualHTML = '';
+            if (window.state.manualOpen) {
+                manualHTML = `
+                <div class="absolute inset-0 z-[1500] bg-black/80 flex items-center justify-center p-8">
+                    <div class="w-full max-w-4xl h-[80vh] glass border-2 border-green-500/50 flex flex-col relative overflow-hidden">
+                        <button onclick="window.toggleManual()" class="absolute top-4 right-4 text-green-500 hover:text-white font-black text-xl z-10">✕</button>
+                        <div class="p-6 border-b border-green-500/20 bg-black/40 flex justify-between items-center">
+                            <h2 class="text-2xl font-black text-green-500 italic uppercase">Field Manual v5.3</h2>
+                            <div class="text-[10px] text-gray-400 font-mono">CLASSIFIED INFORMATION</div>
+                        </div>
+                        <div class="flex-grow overflow-y-auto sidebar-scroll p-8 space-y-12">
+                             <!-- TUTORIAL SECTION -->
+                             <div>
+                                <h3 class="text-green-400 text-xl font-black uppercase mb-4 border-b border-green-400/20 pb-2">Operational Rundown</h3>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div class="bg-green-500/10 p-4 border border-green-500/10">
+                                        <h4 class="text-white font-bold text-xs uppercase mb-1">Defense Basics</h4>
+                                        <p class="text-[10px] text-gray-400 leading-relaxed">
+                                            1. <span class="text-green-500">Deploy Towers:</span> Select units from the sidebar. Place them strategically to cover paths.<br>
+                                            2. <span class="text-green-500">Manage Economy:</span> Earn Credits ($) from kills. Use "Crypto-Miner" towers for passive income.<br>
+                                            3. <span class="text-green-500">Scavenge:</span> After completing a sector (10 waves), you can "Scavenge" to convert excess cash into Scrap for upgrades.
+                                        </p>
+                                    </div>
+                                    <div class="bg-green-500/10 p-4 border border-green-500/10">
+                                        <h4 class="text-white font-bold text-xs uppercase mb-1">Advanced Tactics</h4>
+                                        <p class="text-[10px] text-gray-400 leading-relaxed">
+                                            - <span class="text-blue-400">Synergy:</span> Place combat towers near each other to boost fire rate.<br>
+                                            - <span class="text-blue-400">Weather:</span> Adapt to environmental conditions visible in the sidebar.<br>
+                                            - <span class="text-blue-400">Commander Abilities:</span> Use Orbital Strike, Overload, and Repair in emergencies.
+                                        </p>
+                                    </div>
+                                    <div class="bg-green-500/10 p-4 border border-green-500/10">
+                                        <h4 class="text-white font-bold text-xs uppercase mb-1">Progression</h4>
+                                        <p class="text-[10px] text-gray-400 leading-relaxed">
+                                            - <span class="text-purple-400">Gems:</span> Earned by clearing waves. Use in Lab for global stat upgrades.<br>
+                                            - <span class="text-orange-400">Scrap:</span> Earned by scavenging and killing bosses. Use in Armory to Master towers.<br>
+                                            - <span class="text-yellow-400">Prestige:</span> Resets timeline but keeps upgrades. Boosts all stats permanently.
+                                        </p>
+                                    </div>
+                                    <div class="bg-green-500/10 p-4 border border-green-500/10">
+                                        <h4 class="text-white font-bold text-xs uppercase mb-1">Enemy Intel</h4>
+                                        <p class="text-[10px] text-gray-400 leading-relaxed">
+                                            - <span class="text-red-400">Shielded:</span> Blue bar. Weak to Energy (Tesla, Plasma).<br>
+                                            - <span class="text-red-400">Stealth:</span> Invisible unless near towers or revealed by Radar/Laser.<br>
+                                            - <span class="text-red-400">Bosses:</span> Massive health. Can use EMP blasts to stun towers.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
+            }
+            
+            // MANUAL BUTTON (Persistent & Draggable)
+            const manualBtn = `<button onclick="window.toggleManual(); SFX.ui();" class="draggable absolute top-4 right-4 z-[100] w-10 h-10 glass border-green-500/30 hover:bg-green-500/20 flex items-center justify-center group"><span class="text-lg text-green-500 font-bold group-hover:scale-110 transition-transform">?</span></button>`;
+            let notifHTML = '';
+            if (window.state.notification) {
+                notifHTML = `
+                <div onclick="window.closeNotification()" class="absolute top-10 left-1/2 -translate-x-1/2 z-[1000] modal-animate cursor-pointer">
+                    <div class="glass border-2 border-green-500 bg-black/90 px-8 py-6 max-w-lg shadow-[0_0_50px_rgba(0,255,128,0.2)]">
+                        <div class="flex items-center gap-4 mb-2">
+                            <div class="w-2 h-2 bg-green-500 animate-pulse"></div>
+                            <h3 class="text-green-500 font-black text-xl tracking-widest uppercase">${window.state.notification.title}</h3>
+                        </div>
+                        <p class="text-white text-xs font-mono leading-relaxed border-t border-green-500/30 pt-4">${window.state.notification.msg}</p>
+                    </div>
+                </div>`;
+            }
+            let resetHTML = '';
+            if (window.state.resetConfirm) {
+                resetHTML = `
+                <div class="absolute inset-0 z-[2000] bg-black/95 flex items-center justify-center p-10">
+                    <div class="w-full max-w-lg glass border-2 border-red-600 shadow-[0_0_100px_rgba(220,38,38,0.5)] p-10 text-center">
+                        <h2 class="text-3xl font-black text-red-500 mb-4 animate-pulse">CRITICAL WARNING</h2>
+                        <p class="text-white text-sm mb-8 leading-relaxed">SYSTEM PURGE INITIATED.<br>ALL DATA WILL BE LOST.</p>
+                        <div class="flex gap-4 justify-center">
+                            <button onclick="window.confirmReset()" class="px-8 py-4 bg-red-600 text-black font-black uppercase hover:bg-red-500 tracking-widest text-xs">CONFIRM</button>
+                            <button onclick="window.cancelReset()" class="px-8 py-4 border border-white/20 text-white font-black uppercase hover:bg-white/10 tracking-widest text-xs">ABORT</button>
+                        </div>
+                    </div>
+                </div>`;
+            }
+            
+            let cheatHTML = '';
+            if (window.state.cheatsOpen) {
+                cheatHTML = `
+                <div class="absolute inset-0 z-[999] bg-black/90 flex items-center justify-center p-10">
+                    <div class="w-full max-w-4xl glass p-10 border border-red-500 grid grid-cols-2 gap-10">
+                        <div class="col-span-2 border-b border-red-500/30 pb-4 mb-4">
+                            <h2 class="text-red-500 font-black text-4xl">DEV_CONSOLE // OMEGA</h2>
+                        </div>
+                        <div class="space-y-6">
+                            <button onclick="window.cheatAction('gems', 10000)" class="w-full py-6 border border-red-500 text-red-500 hover:bg-red-500/20 font-black">ADD 10K GEMS</button>
+                            <button onclick="window.cheatAction('scrap', 500)" class="w-full py-6 border border-orange-500 text-orange-500 hover:bg-orange-500/20 font-black">ADD 500 SCRAP</button>
+                            <button onclick="window.cheatAction('unlockAll')" class="w-full py-6 border border-green-500 text-green-500 hover:bg-green-500/20 font-black">UNLOCK ALL</button>
+                        </div>
+                        <div class="space-y-6">
+                            <button onclick="window.cheatAction('rich')" class="w-full py-6 border border-yellow-500 text-yellow-500 hover:bg-yellow-500/20 font-black">RICH START</button>
+                             <button onclick="window.cheatAction('close')" class="w-full py-6 bg-white/10 text-white font-black">CLOSE</button>
+                        </div>
+                    </div>
+                </div>`;
+            }
+            if (window.state.screen === 'loading') {
+                root.innerHTML = `
+                <div class="absolute inset-0 flex flex-col items-center justify-center p-10 bg-[#05070a] z-[200]">
+                    <div class="w-full max-w-lg">
+                        <h1 class="text-4xl font-black text-green-500 mb-2 italic">VANGUARD OS</h1>
+                        <p id="loading-text" class="text-[10px] text-green-500/60 uppercase tracking-widest mb-6">INITIALIZING COMMAND PROTOCOLS...</p>
+                        <div class="w-full bg-white/5 h-1 border border-white/10">
+                            <div id="loading-bar" class="loading-bar"></div>
+                        </div>
+                    </div>
+                </div>`;
+            } else if (window.state.screen === 'boot') {
+                root.innerHTML = `
+                <div class="absolute inset-0 flex flex-col items-center justify-center p-10 bg-[#05070a] z-[100] grid-bg">
+                    <div class="text-center space-y-8 relative">
+                         <div class="absolute -top-20 left-1/2 -translate-x-1/2 w-64 h-64 bg-green-500/5 blur-3xl rounded-full"></div>
+                         <div class="border-y border-green-500/20 py-12 px-24 bg-black/50 backdrop-blur">
+                            <h1 class="text-8xl font-black text-white italic glitch-text mb-2 tracking-tighter">VANGUARD</h1>
+                            <h2 class="text-2xl text-green-500 font-bold tracking-[0.5em] mb-8">GLOBAL DEFENSE NETWORK</h2>
+                            <button onclick="window.enterFull(); SFX.ui();" class="mt-8 px-12 py-4 bg-green-500 text-black font-black text-lg uppercase hover:scale-105 transition-transform">ENTER COMMAND INTERFACE</button>
+                         </div>
+                    </div>
+                </div>`;
+            } else if (window.state.screen === 'menu') {
+                root.innerHTML = manualBtn + manualHTML + cheatHTML + resetHTML + `
+                <div class="absolute inset-0 flex flex-col items-center justify-center p-10 bg-[#05070a]">
+                    <div class="absolute top-10 left-10 text-[8px] text-green-500/20 uppercase">STATUS: ACTIVE | PRESTIGE: ${window.state.prestige} | LVL ${window.state.commander.level}</div>
+                    <div class="absolute top-10 left-1/2 -translate-x-1/2 flex gap-4">
+                        <div class="text-orange-500 font-bold text-xs border border-orange-500/30 px-3 py-1 bg-orange-500/10">SCRAP: ${window.state.scrap}</div>
+                        <div class="text-green-500 font-bold text-xs border border-green-500/30 px-3 py-1 bg-green-500/10">GEMS: ${formatNumber(window.state.gems)}</div>
+                    </div>
+                    <button onclick="window.requestReset()" class="absolute top-10 right-16 group flex items-center gap-2 opacity-50 hover:opacity-100 transition-opacity">
+                        <div class="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                        <span class="text-[9px] text-red-500 font-bold uppercase tracking-widest group-hover:underline">Reset</span>
+                    </button>
+                    <h1 class="text-9xl font-black text-green-500 italic mb-4 glitch-text">VANGUARD</h1>
+                    <p class="text-xs text-green-500/50 uppercase tracking-[1em] mb-20">Terminal Interface v5.3</p>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-8 w-full max-w-6xl relative">
+                        <button onclick="window.setScreen('mapSelect'); SFX.ui();" class="glass p-12 btn-cmd text-green-400 text-3xl group">
+                            <span class="group-hover:tracking-widest transition-all">CAMPAIGN</span>
+                            <div class="text-[10px] text-gray-500 mt-2 uppercase tracking-widest">Deploy to Active Sectors</div>
+                        </button>
+                        <button onclick="window.setScreen('armory'); SFX.ui();" class="glass p-12 btn-cmd text-blue-400 text-3xl group">
+                            <span class="group-hover:tracking-widest transition-all">ARMORY</span>
+                            <div class="text-[10px] text-gray-500 mt-2 uppercase tracking-widest">Requisition & Mastery</div>
+                        </button>
+                        <button onclick="window.setScreen('lab'); SFX.ui();" class="glass p-12 btn-cmd text-purple-400 text-3xl group">
+                            <span class="group-hover:tracking-widest transition-all">RESEARCH</span>
+                            <div class="text-[10px] text-gray-500 mt-2 uppercase tracking-widest">Tech & Economy Upgrades</div>
+                        </button>
+                    </div>
+                    <div class="mt-8 flex gap-4">
+                         ${window.state.completedMaps.includes('orbital') ? 
+                         `<button onclick="window.doPrestige()" class="px-8 py-3 border border-yellow-500 text-yellow-500 font-bold uppercase hover:bg-yellow-500 hover:text-black">INITIATE TIMELINE RESET (PRESTIGE)</button>` : ''}
+                    </div>
+                    <div class="absolute bottom-10 left-1/2 -translate-x-1/2 flex gap-2">
+                        <input id="passcode" placeholder="ACCESS CODE" class="bg-transparent border border-green-500/30 text-green-500 text-xs px-2 py-1 outline-none uppercase tracking-widest text-center focus:border-green-500 placeholder-green-500/30">
+                        <button onclick="window.verifyCode()" class="text-green-500 hover:text-white text-xs border border-green-500/30 px-3 hover:bg-green-500/20 font-bold">ENTER</button>
+                    </div>
+                    <!-- CREDITS -->
+                    <div class="absolute bottom-4 left-4 text-[8px] text-white/10 font-black uppercase tracking-widest pointer-events-none">Made by Gleby Boy</div>
+                </div>`;
+            } else if (window.state.screen === 'mapSelect') {
+                const mapKeys = Object.keys(MAPS);
+                root.innerHTML = manualBtn + manualHTML + cheatHTML + `
+                <div class="absolute inset-0 bg-[#05070a] p-16 flex flex-col">
+                    <div class="flex justify-between items-center mb-12 border-b border-white/10 pb-6">
+                        <div><h2 class="text-4xl font-black text-green-500 italic">CAMPAIGN MAP</h2><p class="text-[10px] text-green-500/40 mt-1 uppercase tracking-widest">Exploration & Conquest Data</p></div>
+                        <div class="flex items-center gap-4">
+                            <button onclick="window.toggleHardcore()" class="px-4 py-2 border ${window.state.hardcore ? 'border-red-500 text-red-500' : 'border-gray-600 text-gray-600'} text-[10px] font-bold uppercase">HARDCORE: ${window.state.hardcore ? 'ON (1 LIFE, x2 REWARDS)' : 'OFF'}</button>
+                            <div class="text-right"><div class="text-2xl font-bold text-green-500">${formatNumber(window.state.gems)} 💎</div><button onclick="window.setScreen('menu')" class="mt-2 text-xs font-bold text-gray-500 hover:text-white uppercase">Return to HQ</button></div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-5 gap-6 h-full pb-20 overflow-y-auto sidebar-scroll">
+                        ${mapKeys.map((key, index) => {
+                            const m = MAPS[key];
+                            const isUnlocked = window.state.unlockedMaps ? window.state.unlockedMaps.includes(key) : index === 0;
+                            const isCompleted = window.state.completedMaps ? window.state.completedMaps.includes(key) : false;
+                            const prevKey = index > 0 ? mapKeys[index-1] : null;
+                            const canBuy = prevKey ? (window.state.completedMaps && window.state.completedMaps.includes(prevKey)) : true;
+                            return `
+                            <div class="glass p-0 text-left btn-cmd group flex flex-col h-full border-white/5 overflow-hidden ${!isUnlocked ? 'opacity-70' : ''}">
+                                <div class="map-preview">
+                                    ${!isUnlocked ? '<div class="absolute inset-0 z-20 locked-overlay flex items-center justify-center"><div class="text-red-500 font-black text-2xl uppercase -rotate-12 border-2 border-red-500 px-4 py-2">RESTRICTED</div></div>' : ''}
+                                    <svg class="w-full h-full p-8" viewBox="0 0 100 100" preserveAspectRatio="none"><polyline points="${m.path.map(p => `${p.x * 100},${p.y * 100}`).join(' ')}" fill="none" stroke="${m.color}" stroke-width="4" stroke-dasharray="2,2" /></svg>
+                                    ${isCompleted ? '<div class="absolute top-2 right-2 text-green-500 bg-black/80 px-2 py-1 text-[8px] font-bold border border-green-500 uppercase">Sector Pacified</div>' : ''}
+                                </div>
+                                <div class="p-6 flex-grow flex flex-col justify-between">
+                                    <div><h3 class="text-lg font-black text-white mb-2">${m.name}</h3><p class="text-[9px] text-gray-500 uppercase leading-relaxed">${m.desc}</p><p class="text-[9px] text-blue-400 mt-2 font-bold">TARGET: SECTOR ${m.target}</p></div>
+                                    <div class="mt-4 pt-4 border-t border-white/5">
+                                        ${isUnlocked ? `<button onclick="window.startGame('${key}'); SFX.ui();" class="w-full py-2 bg-green-500/20 text-green-500 text-[10px] font-bold hover:bg-green-500 hover:text-black transition-colors uppercase">INITIATE DROP</button>` : `<button onclick="window.unlockMap('${key}', ${m.unlockCost})" class="w-full py-2 bg-yellow-500/10 text-yellow-500 text-[10px] font-bold border border-yellow-500/30 hover:bg-yellow-500 hover:text-black uppercase" ${!canBuy || window.state.gems < m.unlockCost ? 'disabled' : ''}>${!canBuy ? 'COMPLETE PREV SECTOR' : `UNLOCK: ${formatNumber(m.unlockCost)} 💎`}</button>`}
+                                    </div>
+                                </div>
+                            </div>
+                        `}).join('')}
+                    </div>
+                </div>`;
+            } else if (window.state.screen === 'game') {
+                root.innerHTML = manualBtn + manualHTML + notifHTML + cheatHTML + `
+                <div class="flex-grow relative h-full"><canvas id="game-canvas"></canvas></div>
+                <button id="speed-btn" onclick="window.toggleSpeed()" class="absolute top-4 right-96 mr-8 btn-cmd px-4 py-2 text-green-500 text-[10px] border-green-500/50 hover:bg-green-500/10 z-50">SPEED: ${activeSession.speed}X</button>
+                <div class="absolute top-4 left-4 z-50 glass border border-orange-500/30 p-4 w-64">
+                    <h4 class="text-orange-500 text-[10px] font-black uppercase mb-2 tracking-widest">DAILY BOUNTY</h4>
+                    <div class="flex justify-between items-center text-xs font-mono text-gray-400 mb-1"><span>${window.state.bounty.desc}</span><span id="bounty-text" class="${window.state.bounty.claimed ? 'text-green-500' : 'text-white'}">${window.state.bounty.progress}/${window.state.bounty.target}</span></div>
+                    <div class="w-full bg-white/10 h-1"><div id="bounty-bar" class="h-full bg-orange-500 transition-all" style="width: ${Math.min(100, (window.state.bounty.progress / window.state.bounty.target) * 100)}%"></div></div>
+                    ${window.state.bounty.claimed ? '<div class="text-[9px] text-green-500 font-bold mt-2 text-center uppercase">REWARD CLAIMED</div>' : `<div class="text-[9px] text-orange-500/50 font-bold mt-2 text-right uppercase">REWARD: ${window.state.bounty.reward} 💎</div>`}
+                </div>
+                
+                <button id="btn-scavenge" onclick="window.scavenge()" style="display:none;" class="absolute top-24 right-[26rem] z-[50] px-6 py-3 bg-orange-500 text-black font-bold text-sm border-2 border-white hover:scale-105 transition-transform shadow-[0_0_20px_rgba(230,126,34,0.6)]">SCAVENGE</button>
+                <!-- BATTLE LOG REMOVED -->
+                
+                <div class="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-4 z-50">
+                    <button id="btn-orbital" onclick="window.activatePower('orbital')" class="group relative w-20 h-20 glass border border-red-500/50 hover:border-red-500 overflow-hidden active:scale-95 transition-all">
+                        <div id="cd-orbital" class="cooldown-overlay h-0"></div><div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none"><div class="text-2xl mb-1">☄️</div><span class="text-[8px] font-bold text-red-500 uppercase tracking-tighter">ORBITAL</span></div>
+                    </button>
+                    <button id="btn-overload" onclick="window.activatePower('overload')" class="group relative w-20 h-20 glass border border-yellow-500/50 hover:border-yellow-500 overflow-hidden active:scale-95 transition-all">
+                        <div id="cd-overload" class="cooldown-overlay h-0"></div><div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none"><div class="text-2xl mb-1">⚡</div><span class="text-[8px] font-bold text-yellow-500 uppercase tracking-tighter">OVERLOAD</span></div>
+                    </button>
+                    <button id="btn-repair" onclick="window.activatePower('repair')" class="group relative w-20 h-20 glass border border-green-500/50 hover:border-green-500 overflow-hidden active:scale-95 transition-all">
+                        <div id="cd-repair" class="cooldown-overlay h-0"></div><div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none"><div class="text-2xl mb-1">🔧</div><span class="text-[8px] font-bold text-green-500 uppercase tracking-tighter">REPAIR</span></div>
+                    </button>
+                </div>
+                <div class="w-96 h-full glass flex flex-col p-6 border-l border-green-500/20 z-30">
+                    <div class="mb-6 p-5 bg-black/40 rounded border border-white/10 space-y-4">
+                        <div class="flex justify-between items-center"><span class="text-[8px] text-gray-500 uppercase font-black tracking-widest">Sector Depth</span><span id="side-round" class="text-2xl font-black text-blue-500">1</span></div>
+                        <div class="flex justify-between items-center"><span class="text-[8px] text-gray-500 uppercase font-black tracking-widest">Hull Integrity</span><span id="side-lives" class="text-2xl font-black text-red-500">100</span></div>
+                        <div class="flex justify-between items-center"><span class="text-[8px] text-gray-500 uppercase tracking-widest">Credits</span><span id="side-money" class="text-xl font-black text-green-400">$600</span></div>
+                        <div class="flex justify-between items-center"><span class="text-[8px] text-gray-500 uppercase tracking-widest">Gems</span><span id="side-gems" class="text-xl font-black text-yellow-500">0 💎</span></div>
+                    </div>
+                    <!-- WEATHER PANEL -->
+                    <div class="mb-4 p-3 border-l-2" style="border-color: ${activeSession.weather.color}; background: linear-gradient(90deg, ${activeSession.weather.color}11, transparent);">
+                        <div class="flex items-center gap-2 mb-1">
+                            <span style="color: ${activeSession.weather.color}">⚠️</span>
+                            <span class="text-[10px] font-black uppercase" style="color: ${activeSession.weather.color}">${activeSession.weather.name}</span>
+                        </div>
+                        <p class="text-[9px] text-gray-400">${activeSession.weather.desc}</p>
+                    </div>
+                    
+                    <div class="flex-grow overflow-y-auto sidebar-scroll pr-3">
+                        <div class="mb-4">
+                            <button onclick="window.useConsumable()" class="w-full py-2 border border-blue-500/30 text-blue-400 text-[10px] font-bold hover:bg-blue-500/10 uppercase ${activeSession.usedConsumable || window.state.inventory.supply <= 0 || window.state.hardcore ? 'opacity-50 cursor-not-allowed' : ''}">USE SUPPLY DROP (${window.state.inventory.supply || 0})</button>
+                        </div>
+                        ${window.state.unlocked.map(id => {
+                            const t = TOWER_DATA[id]; const cost = Math.floor(t.cost * (1 - (window.state.upgrades.discount * 0.07)));
+                            return `<button onclick="window.selectPlacing('${id}'); SFX.ui();" class="w-full mb-3 p-4 rounded bg-white/5 border border-white/5 text-left hover:border-green-500/50 flex gap-4 items-center group">
+                                <div class="w-1 h-10" style="background-color: ${t.color}"></div>
+                                <div class="flex-grow"><div class="flex justify-between items-center"><span class="text-[10px] font-black text-gray-200 uppercase">${t.name}</span><span class="text-green-500 text-xs font-black">$${formatNumber(cost)}</span></div><p class="text-[7px] text-gray-500 uppercase mt-1">${t.desc.split('.')[0]}</p></div>
+                            </button>`;
+                        }).join('')}
+                    </div>
+                    ${activeSession.selectedTower ? `
+                        <div class="mt-4 p-4 bg-blue-500/10 border border-blue-500/30 rounded">
+                            <h4 class="text-[10px] font-black uppercase text-blue-400 mb-3">${activeSession.selectedTower.name} ANALYTICS</h4>
+                             <div class="mb-4 text-center border-b border-blue-500/20 pb-4">
+                                <div id="vet-label" class="text-xs font-bold tracking-widest">ROOKIE</div>
+                                <div class="text-[8px] text-gray-400 uppercase mt-1">CONFIRMED KILLS: <span class="text-white font-bold">${activeSession.selectedTower.kills}</span></div>
+                            </div>
+                            <!-- LIVE STATS -->
+                            <div class="grid grid-cols-3 gap-2 mb-4 pb-4 border-b border-blue-500/20 text-center">
+                                <div><div class="text-[8px] text-gray-400 uppercase">DMG</div><div id="stat-dmg" class="text-sm font-bold text-white">--</div></div>
+                                <div><div class="text-[8px] text-gray-400 uppercase">RNG</div><div id="stat-rng" class="text-sm font-bold text-white">--</div></div>
+                                <div><div class="text-[8px] text-gray-400 uppercase">RATE</div><div id="stat-rate" class="text-sm font-bold text-white">--</div></div>
+                            </div>
+                            ${activeSession.selectedTower.type === 'combat' ? `
+                                <div class="grid grid-cols-2 gap-2 mb-4">
+                                    ${['First', 'Last', 'Strongest', 'Weakest'].map(p => `<button onclick="window.setPriority('${p}')" class="py-2 text-[8px] font-bold border transition-colors ${activeSession.selectedTower.priority === p ? 'bg-blue-500 text-black border-blue-500' : 'border-blue-500/30 text-blue-500 hover:bg-blue-500/10'}">${p}</button>`).join('')}
+                                </div>
+                                <div class="border-t border-blue-500/20 pt-2">
+                                    <p class="text-[9px] text-blue-300 mb-2 uppercase font-bold">Specialization Protocols</p>
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <button onclick="window.setSpec('range')" class="py-2 text-[8px] border ${activeSession.selectedTower.spec === 'range' ? 'bg-yellow-500 text-black border-yellow-500' : 'border-white/10 text-gray-400'}">+ RANGE</button>
+                                        <button onclick="window.setSpec('damage')" class="py-2 text-[8px] border ${activeSession.selectedTower.spec === 'damage' ? 'bg-red-500 text-black border-red-500' : 'border-white/10 text-gray-400'}">+ DMG</button>
+                                    </div>
+                                </div>
+                            ` : ''}
+                            ${activeSession.selectedTower.type === 'spawner' ? `<button onclick="window.prepDeploy()" class="w-full mt-2 py-3 bg-orange-500/20 text-orange-500 border border-orange-500 text-[10px] font-black uppercase hover:bg-orange-500 hover:text-black">Relocate Elite Squad</button>` : ''}
+                            <button onclick="window.sellTower()" class="w-full mt-2 py-3 bg-red-500/20 text-red-500 border border-red-500 text-[10px] font-black uppercase hover:bg-red-500 hover:text-black">SELL (70%)</button>
+                        </div>
+                    ` : ''}
+                    <div class="grid grid-cols-2 gap-2 mt-4">
+                        <button onclick="window.callAirstrike()" class="py-3 text-[10px] font-bold text-orange-400 border border-orange-500 bg-orange-500/5 hover:bg-orange-500 hover:text-black" title="Call Airstrike ($500)">✈️ AIRSTRIKE</button>
+                        <button onclick="window.setScreen('menu')" class="py-3 text-[10px] font-bold text-red-500 border border-red-500/50 bg-red-500/5 hover:bg-red-500/20" title="Abort Mission">✕ ABORT</button>
+                    </div>
+                </div>`;
+                
+                restoreScroll(savedScroll);
+                
+                canvas = document.getElementById('game-canvas'); ctx = canvas.getContext('2d');
+                resizeCanvas();
+                // Canvas mouse listener - now uses global tracking
+                canvas.addEventListener('mousemove', e => { 
+                    const r = canvas.getBoundingClientRect(); 
+                    activeSession.mouse = { x: (e.clientX-r.left), y: (e.clientY-r.top)}; 
+                });
+                
+                canvas.addEventListener('mousedown', () => { 
+                    if (activeSession.powerMode === 'orbital') {
+                         activeSession.powerMode = null; const p = activeSession.powers.orbital;
+                         
+                         const cdReduc = 1 - (window.state.upgrades.cmdCooldown * 0.1); 
+                         const effectBoost = 1 + (window.state.upgrades.cmdEffect * 0.2); 
+                         p.cd = Date.now() + (p.maxCd * cdReduc); 
+                         
+                         SFX.explosion(); screenShake = 20; 
+                         activeSession.bullets.push({x: activeSession.mouse.x, y: activeSession.mouse.y, type:'pulse', range: 150, life: 30, color: '#ff0000'});
+                         activeSession.enemies.forEach(e => { if (Math.hypot(e.x - activeSession.mouse.x, e.y - activeSession.mouse.y) < 150) { e.takeDamage(5000 * effectBoost, 'physical'); }});
+                         window.showNotification("ORBITAL STRIKE", "KINETIC IMPACT CONFIRMED. TARGETS NEUTRALIZED.");
+                         renderUI(); return;
+                    }
+                    if (activeSession.deployingFor) {
+                        const dist = Math.hypot(activeSession.mouse.x - activeSession.deployingFor.x, activeSession.mouse.y - activeSession.deployingFor.y);
+                        if (dist <= activeSession.deployingFor.range) {
+                            activeSession.soldiers = activeSession.soldiers.filter(s => s.tower !== activeSession.deployingFor);
+                            activeSession.soldiers.push(new Soldier(activeSession.mouse.x, activeSession.mouse.y, activeSession.deployingFor));
+                            activeSession.deployingFor = null; SFX.shoot();
+                        }
+                        return;
+                    }
+                    if (activeSession.placing) {
+                        const def = TOWER_DATA[activeSession.placing];
+                        const cost = Math.floor(def.cost * (1 - (window.state.upgrades.discount * 0.07)));
+                        const path = getMapPath(activeSession.map);
+                        const onPath = isPointOnPath(activeSession.mouse.x, activeSession.mouse.y, path);
+                        
+                        const validPos = (def.type === 'mine' && onPath) || (def.type !== 'mine' && !onPath);
+                        if (validPos && 
+                            !activeSession.towers.some(t => Math.hypot(t.x-activeSession.mouse.x, t.y-activeSession.mouse.y) < 35) && 
+                            activeSession.money >= cost) {
+                            
+                            activeSession.towers.push({...def, id: activeSession.placing, x: activeSession.mouse.x, y: activeSession.mouse.y, cooldown: 0, priority: 'First', spec: null, kills: 0, dead: false});
+                            activeSession.money -= cost; activeSession.placing = null;
+                            if (window.state.bounty && !window.state.bounty.claimed && window.state.bounty.id === 'build_10') window.state.bounty.progress++;
+                            SFX.ui();
+                            logComms(`DEPLOYED: ${def.name}`);
+                        } else { SFX.error(); }
+                    } else {
+                        const clicked = activeSession.towers.find(t => Math.hypot(t.x-activeSession.mouse.x, t.y-activeSession.mouse.y) < 20);
+                        activeSession.selectedTower = clicked;
+                    }
+                    renderUI();
+                });
+                animId = requestAnimationFrame(gameLoop);
+            } else if (window.state.screen === 'armory') {
+                root.innerHTML = manualBtn + manualHTML + cheatHTML + `<div class="absolute inset-0 bg-[#05070a] flex flex-col"><div class="p-10 flex justify-between items-center border-b border-white/5 bg-black/40"><h2 class="text-4xl font-black text-blue-500 italic uppercase">Armory & Mastery</h2><div class="text-right"><div class="text-xl font-bold text-orange-500">${window.state.scrap} SCRAP</div><div class="text-xl font-bold text-green-500">${formatNumber(window.state.gems)} 💎</div><button onclick="window.setScreen('menu')" class="mt-2 text-xs font-bold text-gray-500 hover:text-white uppercase">Return to HQ</button></div></div>
+                <div class="flex-grow overflow-y-auto sidebar-scroll p-10">
+                    <div class="mb-10">
+                        <h3 class="text-white font-black text-xl mb-4 border-b border-white/10 pb-2">Black Market (Consumables)</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                            <div class="glass p-6 border-orange-500/30">
+                                <h4 class="text-orange-500 font-bold uppercase mb-2">Supply Drop</h4>
+                                <p class="text-[10px] text-gray-400 mb-4">Instant $5000 credits & Repair.</p>
+                                <button onclick="window.buyConsumable('supply', 100)" class="w-full py-2 bg-orange-500/20 text-orange-500 font-bold text-xs border border-orange-500 hover:bg-orange-500 hover:text-black">BUY: 100 SCRAP</button>
+                                <div class="text-center text-[10px] text-gray-500 mt-2">OWNED: ${window.state.inventory.supply || 0}</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 pb-10">
+                        ${Object.entries(TOWER_DATA).map(([key, t]) => {
+                            const mastery = (window.state.mastery && window.state.mastery[key]) || 0;
+                            const cost = (mastery + 1) * 5;
+                            const isMax = mastery >= 10;
+                            return `<div class="glass p-6 rounded flex flex-col h-full ${window.state.unlocked.includes(key) ? 'border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.1)]' : 'border-white/10'}">
+                                <div class="flex justify-between items-start mb-4"><h4 class="font-black text-white uppercase text-lg">${t.name}</h4><div class="w-3 h-3 rounded-full" style="background-color: ${t.color}"></div></div>
+                                <div class="text-[10px] text-gray-400 mb-2 font-mono">MASTERY LVL ${mastery} / 10</div>
+                                <div class="w-full bg-white/5 h-1 mb-4"><div class="h-full bg-blue-500" style="width: ${mastery * 10}%"></div></div>
+                                <p class="text-[10px] text-gray-500 my-4 uppercase leading-relaxed flex-grow">${t.desc}</p>
+                                ${window.state.unlocked.includes(key) ? 
+                                    `<button onclick="window.upgradeMastery('${key}')" class="btn-cmd w-full py-3 text-[10px] text-orange-400 border-orange-400 hover:bg-orange-400 hover:text-black mb-2" ${isMax || window.state.scrap < cost ? 'disabled' : ''}>${isMax ? 'MAXED' : `UPGRADE: ${cost} SCRAP`}</button>` : 
+                                    `<button onclick="window.buyTower('${key}', ${t.unlock})" class="btn-cmd w-full py-4 text-[10px] text-blue-400 border-blue-400 hover:bg-blue-400 hover:text-black" ${window.state.gems < t.unlock ? 'disabled' : ''}>Unlock: ${formatNumber(t.unlock)} 💎</button>`}
+                            </div>`
+                        }).join('')}
+                    </div>
+                </div></div>`;
+                restoreScroll(savedScroll);
+            } else if (window.state.screen === 'lab') {
+                root.innerHTML = manualBtn + manualHTML + cheatHTML + `<div class="absolute inset-0 bg-[#05070a] flex flex-col"><div class="p-10 flex justify-between items-center border-b border-white/5 bg-black/40"><h2 class="text-4xl font-black text-purple-500 italic uppercase">Applied Research Lab</h2><div class="text-right"><div class="text-2xl font-bold text-green-500">${formatNumber(window.state.gems)} 💎</div><button onclick="window.setScreen('menu')" class="mt-2 text-xs font-bold text-gray-500 hover:text-white uppercase">Return to HQ</button></div></div><div class="flex-grow overflow-y-auto sidebar-scroll p-10"><div class="grid grid-cols-1 md:grid-cols-3 gap-8 pb-10">${Object.entries(UPGRADE_DATA).map(([key, u]) => {const cost = u.base * (window.state.upgrades[key]+1); const isMax = window.state.upgrades[key] >= u.max; return `<div class="glass p-8 border-white/10"><h4 class="font-black text-white uppercase text-xl mb-2">${u.name}</h4><p class="text-[10px] text-gray-500 mb-6 uppercase tracking-wider">${u.desc}</p><div class="flex justify-between items-end mb-6"><span class="text-[10px] text-purple-500 font-black uppercase">Tier ${window.state.upgrades[key]} / ${u.max}</span><div class="flex gap-1">${Array.from({length: u.max}).map((_, i) => `<div class="w-1.5 h-3 ${i < window.state.upgrades[key] ? 'bg-purple-500' : 'bg-white/5'}"></div>`).join('')}</div></div><button onclick="window.upgrade('${key}', ${cost}); SFX.ui();" class="btn-cmd w-full py-4 text-[10px] text-purple-400 border-purple-400 hover:bg-purple-400 hover:text-black" ${isMax || window.state.gems < cost ? 'disabled' : ''}>${isMax ? 'MAX LEVEL' : `Authorize Research: ${formatNumber(cost)} 💎`}</button></div>`;}).join('')}</div></div></div>`;
+                restoreScroll(savedScroll);
+            }
+        }
+        window.enterFull = () => { 
+            document.documentElement.requestFullscreen().catch(e => console.log(e)); 
+            let target = window.state.lastScreen || 'menu';
+            if (target === 'game' && !activeSession) target = 'menu'; 
+            window.state.screen = target; renderUI(); 
+        };
+        window.setScreen = (s) => { window.state.screen = s; renderUI(); };
+        window.startGame = (mapKey) => {
+            activeSession = {
+                lives: (100 + (window.state.upgrades.shielding * 10)) * (window.state.hardcore ? 0.01 : 1), // 1 Life in hardcore
+                money: (window.state.richStart ? 1000000 : 600) + (window.state.upgrades.bounty * 100),
+                round: 1, map: mapKey || 'outpost',
+                enemies: [], towers: [], bullets: [], soldiers: [],
+                spawnCount: 10, nextSpawn: Date.now() + 1000, placing: null, 
+                mouse: {x: 0, y: 0},
+                selectedTower: null, deployingFor: null, speed: 1, 
+                comms: ["SYSTEM ONLINE", "AWAITING HOSTILES"],
+                weather: WEATHER_EVENTS[0], 
+                canScavenge: false, usedConsumable: false,
+                powers: {
+                    orbital: { cd: 0, maxCd: 60000, active: false },
+                    overload: { cd: 0, maxCd: 45000, active: false, endTime: 0 },
+                    repair: { cd: 0, maxCd: 90000, active: false }
+                },
+                powerMode: null
+            };
+            // Hardcore check
+            if(window.state.hardcore) activeSession.lives = 1;
+            
+            lastTime = 0; accumulator = 0; window.state.screen = 'game'; renderUI();
+        };
+        window.selectPlacing = (id) => { 
+            if (activeSession.placing === id) activeSession.placing = null;
+            else { 
+                activeSession.placing = id; 
+                activeSession.powerMode = null;
+                // Update mouse immediately to center of screen or last global pos if available
+                if (canvas && mouseGlobal.x !== 0) {
+                    const rect = canvas.getBoundingClientRect();
+                    activeSession.mouse = { x: mouseGlobal.x - rect.left, y: mouseGlobal.y - rect.top };
+                }
+            }
+            renderUI();
+        };
+        window.setPriority = (p) => { activeSession.selectedTower.priority = p; renderUI(); };
+        window.prepDeploy = () => { activeSession.deployingFor = activeSession.selectedTower; renderUI(); };
+        window.buyTower = (id, cost) => { if (window.state.gems >= cost) { window.state.gems -= cost; window.state.unlocked.push(id); save(); renderUI(); } };
+        window.upgrade = (key, cost) => { if (window.state.gems >= cost) { window.state.gems -= cost; window.state.upgrades[key]++; save(); renderUI(); } };
+        window.unlockMap = (id, cost) => { if (window.state.gems >= cost) { window.state.gems -= cost; window.state.unlockedMaps = window.state.unlockedMaps || []; window.state.unlockedMaps.push(id); save(); renderUI(); } };
+        function resizeCanvas() { if (canvas && canvas.parentNode) { canvas.width = canvas.parentNode.offsetWidth; canvas.height = canvas.parentNode.offsetHeight; } }
+        
+        window.onload = init;
+    </script>
+</body>
+</html>
