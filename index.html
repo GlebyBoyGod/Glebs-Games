@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Glebs Games</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-bright: #f8fafc;
+            --accent-blue: #3b82f6;
+            --accent-pink: #f43f5e;
+            --card-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+        }
+
+        body {
+            background-color: var(--bg-bright);
+            color: #1e293b;
+            font-family: 'Outfit', sans-serif;
+            overflow-x: hidden;
+            user-select: none;
+        }
+
+        /* Playful Background Elements */
+        .dot-grid {
+            position: fixed;
+            inset: 0;
+            background-image: radial-gradient(#e2e8f0 1.5px, transparent 1.5px);
+            background-size: 30px 30px;
+            z-index: -1;
+        }
+
+        .blob {
+            position: fixed;
+            filter: blur(60px);
+            z-index: -2;
+            opacity: 0.5;
+            animation: move 15s infinite alternate;
+        }
+
+        @keyframes move {
+            from { transform: translate(-10%, -10%); }
+            to { transform: translate(20%, 20%); }
+        }
+
+        .game-card {
+            background: white;
+            border: 4px solid #1e293b;
+            box-shadow: 8px 8px 0px #1e293b;
+            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            cursor: pointer;
+        }
+
+        .game-card:hover {
+            transform: translate(-4px, -4px);
+            box-shadow: 16px 16px 0px var(--accent-blue);
+            border-color: var(--accent-blue);
+        }
+
+        .game-card:active {
+            transform: translate(2px, 2px);
+            box-shadow: 4px 4px 0px var(--accent-blue);
+        }
+
+        .btn-launch {
+            background: #1e293b;
+            color: white;
+            padding: 1rem 2rem;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            border-radius: 0.5rem;
+            transition: all 0.2s;
+        }
+
+        .game-card:hover .btn-launch {
+            background: var(--accent-blue);
+        }
+
+        #game-viewport {
+            width: 100%;
+            height: 100%;
+            border: none;
+            display: none;
+        }
+
+        .hidden-view { display: none; }
+
+        .loader-dot {
+            width: 12px;
+            height: 12px;
+            background: var(--accent-blue);
+            border-radius: 50%;
+            display: inline-block;
+            animation: bounce 0.6s infinite alternate;
+        }
+
+        @keyframes bounce {
+            to { transform: translateY(-10px); }
+        }
+    </style>
+</head>
+<body>
+    <div class="dot-grid"></div>
+    <div class="blob w-96 h-96 bg-blue-100 top-0 left-0"></div>
+    <div class="blob w-80 h-80 bg-pink-100 bottom-0 right-0"></div>
+
+    <!-- Navigation -->
+    <nav class="p-8 flex justify-center md:justify-start">
+        <div class="cursor-pointer flex items-center gap-4" onclick="showHome()">
+            <div class="w-12 h-12 bg-blue-600 border-4 border-slate-900 rounded-xl flex items-center justify-center text-white text-2xl font-black shadow-[4px_4px_0px_#0f172a]">G</div>
+            <h1 class="text-4xl font-black italic tracking-tighter uppercase text-slate-900">Glebs Games</h1>
+        </div>
+    </nav>
+
+    <main class="max-w-6xl mx-auto px-8 py-12">
+        
+        <!-- Home Screen -->
+        <section id="home-view">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-12">
+                <!-- Card: Vanguard -->
+                <div class="game-card rounded-3xl overflow-hidden p-6" onclick="launchGame('vanguard')">
+                    <div class="aspect-video rounded-2xl bg-blue-50 mb-6 overflow-hidden border-2 border-slate-100 relative group">
+                        <img src="https://images.unsplash.com/photo-1614850523296-d8c1af93d400?q=80&w=2070&auto=format&fit=crop" class="w-full h-full object-cover group-hover:scale-105 transition-transform">
+                        <div class="absolute inset-0 bg-blue-600/10 group-hover:bg-transparent transition-colors"></div>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <h2 class="text-3xl font-black uppercase italic tracking-tight">Vanguard</h2>
+                        <span class="btn-launch">Play</span>
+                    </div>
+                </div>
+
+                <!-- Card: Bubble Blasters -->
+                <div class="game-card rounded-3xl overflow-hidden p-6" onclick="launchGame('bubble-blasters')">
+                    <div class="aspect-video rounded-2xl bg-pink-50 mb-6 overflow-hidden border-2 border-slate-100 relative group">
+                        <img src="https://images.unsplash.com/photo-1518770660439-4636190af475?q=80&w=2070&auto=format&fit=crop" class="w-full h-full object-cover group-hover:scale-105 transition-transform">
+                        <div class="absolute inset-0 bg-pink-600/10 group-hover:bg-transparent transition-colors"></div>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <h2 class="text-3xl font-black uppercase italic tracking-tight">Bubble Blasters</h2>
+                        <span class="btn-launch">Play</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Game Player -->
+        <section id="game-view" class="hidden-view">
+            <div class="flex items-center justify-between mb-8">
+                <button onclick="stopGame()" class="flex items-center gap-2 font-black uppercase text-sm hover:text-blue-600 transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path d="M15 19l-7-7 7-7" /></svg>
+                    Back to Games
+                </button>
+                <div class="px-4 py-2 bg-white border-2 border-slate-900 rounded-full font-black uppercase text-xs shadow-[2px_2px_0px_#000]">
+                    Live: <span class="text-blue-600" id="active-game-name">None</span>
+                </div>
+            </div>
+            
+            <div class="w-full aspect-video bg-white rounded-[2.5rem] border-4 border-slate-900 overflow-hidden shadow-[12px_12px_0px_#1e293b] relative">
+                <!-- Loader -->
+                <div id="loader-screen" class="absolute inset-0 flex flex-col items-center justify-center bg-white z-20">
+                    <div class="flex gap-2">
+                        <div class="loader-dot"></div>
+                        <div class="loader-dot" style="animation-delay: 0.1s"></div>
+                        <div class="loader-dot" style="animation-delay: 0.2s"></div>
+                    </div>
+                    <h2 class="mt-4 font-black uppercase text-xs tracking-widest text-slate-400">Loading Session</h2>
+                </div>
+                
+                <iframe id="game-viewport" src=""></iframe>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        const viewport = document.getElementById('game-viewport');
+        const loader = document.getElementById('loader-screen');
+
+        function launchGame(filename) {
+            const gameTitle = filename.replace('-', ' ').toUpperCase();
+            
+            document.getElementById('home-view').classList.add('hidden-view');
+            document.getElementById('game-view').classList.remove('hidden-view');
+            document.getElementById('active-game-name').innerText = gameTitle;
+            
+            loader.style.display = 'flex';
+            viewport.style.display = 'none';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+
+            viewport.src = filename + '.html';
+
+            viewport.onload = function() {
+                setTimeout(() => {
+                    loader.style.display = 'none';
+                    viewport.style.display = 'block';
+                }, 1000);
+            };
+        }
+
+        function stopGame() {
+            viewport.src = "";
+            document.getElementById('home-view').classList.remove('hidden-view');
+            document.getElementById('game-view').classList.add('hidden-view');
+        }
+
+        function showHome() {
+            stopGame();
+        }
+    </script>
+</body>
+</html>
